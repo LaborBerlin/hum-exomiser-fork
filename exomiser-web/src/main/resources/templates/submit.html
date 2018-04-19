@@ -52,8 +52,10 @@
                     <li><a href="index.html" th:href="@{index}">Home</a></li>
                     <li class="active"><a href="submit.html" th:href="@{submit}">Analyse</a></li>
                     <li><a href="publications.html" th:href="@{publications}">Publications</a></li>
-                    <li><a href="download.html" th:href="@{download}">Download</a></li>
-                    <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    <!-- 
+                      <li><a href="download.html" th:href="@{download}">Download</a></li>
+                      <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    -->
                     <li><a href="about.html" th:href="@{about}">About</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
@@ -72,13 +74,10 @@
                     <div class="panel-body">
                         <div class="col-sm-4">
                             <div class="input-group">
-                                <label for="vcf">VCF file:</label>
+                                <label for="vcf">VCF file (plain or gzipped):</label>
                                 <input type="file" draggable="true" name="vcf" id="vcf"/>
 
-                                <p class="help-block"><em>Required.</em> Upload exome sequencing results in VCF format. We can only accept files containing up to <span th:text="${@maxVariants}">100000</span> variants.
-                                    <a href="Pfeiffer.vcf">Example file</a> with causative FGFR2
-                                    variant for the autosomal dominant Pfeiffer syndrome added to exome of a
-                                    <a href="http://manuelcorpas.com/2012/02/06/my-personal-exome-analysis-part-i-first-findings">healthy individual</a>
+                                <p class="help-block"><em>Required.</em> Upload variants in plain / gzipped Variant Calling Format (VCF). We can only accept files containing up to <span th:text="${@maxVariants}">100000</span> variants. <a href="Pfeiffer.vcf">Example file</a> with causative FGFR2 variant for the autosomal dominant Pfeiffer syndrome added to exome of a <a href="http://manuelcorpas.com/2012/02/06/my-personal-exome-analysis-part-i-first-findings">healthy individual</a>
                                 </p>
                             </div>
                         </div>
@@ -86,14 +85,14 @@
                             <div class="input-group">
                                 <label for="ped">PED file:</label>
                                 <input type="file" draggable="true" name="ped" id="ped"/>
-                                <p class="help-block">Only required for multi-sample VCF files</p>
+                                <p class="help-block"><em>Only required for multi-sample VCF files</em></p>
                             </div>
                         </div>
                         <div class="col-sm-4">
                             <div class="input-group">
-                                <label for="proband">Proband:</label>
+                                <label for="proband">Proband ID:</label>
                                 <input class="form-control" type="text" name="proband" id="proband"/>
-                                <p class="help-block">Sample identifier for the proband as in the VCF and PED files. Only required for multi-sample VCF files</p>
+                                <p class="help-block"><em>Only required for multi-sample VCF files.</em>  Sample identifier for the proband as in the VCF and PED files.</p>
                             </div>
                         </div>
                     </div>
@@ -157,11 +156,11 @@
                             </div>
                         </div>
                         <div class="col-sm-4">  
-                            <label for="interval">Genetic interval:</label>
+                            <label for="interval">Minimum Read Depth:</label>
                             <div class="form-group">
                                 <div class="input-group">
-                                    <span class="input-group-addon">Chr</span>
-                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
+                                    <span class="input-group-addon">Coverage</span>
+                                    <input class="form-control" type="text" name="depth" id="depth" placeholder="e.g. 20"/>
                                 </div>
                             </div>
 
@@ -198,6 +197,14 @@
                             <div class="form-group">
                                 <select data-placeholder=" e.g. FGFR2" class="chosen-select" multiple="true" tabindex="3" name="genes-to-keep" id="gene-filter">
                                 </select>
+                            </div>
+
+                            <label for="interval">Genetic interval:</label>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <span class="input-group-addon">Chr</span>
+                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
+                                </div>
                             </div>
                         </div> 
                     </div>

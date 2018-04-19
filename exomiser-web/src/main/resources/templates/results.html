@@ -49,8 +49,10 @@
                     <li><a href="index.html" th:href="@{index}">Home</a></li>
                     <li class="active"><a href="submit.html" th:href="@{submit}">Analyse</a></li>
                     <li><a href="publications.html" th:href="@{publications}">Publications</a></li>
-                    <li><a href="download.html" th:href="@{download}">Download</a></li>
-                    <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    <!-- 
+                      <li><a href="download.html" th:href="@{download}">Download</a></li>
+                      <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    -->
                     <li><a href="about.html" th:href="@{about}">About</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
@@ -68,7 +70,8 @@
                 <li><a href="#distribution" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-align-left"></span> Variant Type Distribution</b></a></li>
                 <li class="active"><a href="#prioritisation" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-sort"></span> Prioritised Genes</b></a></li>
                 <li th:unless="${#lists.isEmpty(unAnalysedVarEvals)}"><a href="#errors" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-warning-sign"></span> Unanalysed Variants</b></a></li>
-                <!--<li><a href="#about" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-question-sign"/> About</b></a></li>-->
+                <li><a href="#download" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-download-alt"/> Download Results</b></a></li>
+                <li><a href="#about" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-question-sign"/> About</b></a></li>
             </ul>
             <div class="tab-content">
                 <div class="tab-pane fade" id="settings">
