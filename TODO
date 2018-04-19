@@ -1,0 +1,9 @@
+UI
+################################################################################
+TODO Gzip support
+TODO Parsing von Komma als Decimaldelimiter
+TODO Download von genes.tsv und variants.tsv
+
+TODO Depth Filter
+
+TODO Automatische Proband ID Auswahl falls nicht angegeben
