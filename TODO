@@ -1,8 +1,8 @@
 UI
 ################################################################################
-TODO Gzip support
-TODO Parsing von Komma als Decimaldelimiter
+DONE Gzip support
 TODO Download von genes.tsv und variants.tsv
+TODO Parsing von Komma als Decimaldelimiter
 
 TODO Depth Filter
 
