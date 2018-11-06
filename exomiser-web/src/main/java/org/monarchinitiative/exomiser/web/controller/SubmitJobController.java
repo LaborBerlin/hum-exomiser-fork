@@ -179,6 +179,16 @@ public class SubmitJobController {
 
     private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
 
+        //AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
+        //        .analysisMode(AnalysisMode.PASS_ONLY)
+        //        .genomeAssembly(GenomeAssembly.HG19)
+        //        .vcfPath(vcfPath)
+        //        .pedigree((pedPath == null) ? Pedigree.empty() : PedFiles.readPedigree(pedPath))
+        //        .probandSampleName(proband)
+        //        .hpoIds(phenotypes)
+        //        .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
+        //        .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
+        //        .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
         AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.PASS_ONLY)
                 .genomeAssembly(GenomeAssembly.HG19)
