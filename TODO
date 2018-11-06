@@ -1,9 +1,41 @@
+PROJECT DEPLOYMENT
+################################################################################
+mvn -Dmaven.test.skip=true package
+
 TODO
 ################################################################################
 DONE Gzip support
+DONE Update Fork to Version 11.0 (git merge upstream/master)
 
-TODO Download von genes.tsv und variants.tsv
-TODO Crap Filter ESRRA, KCNJ11, HLA* und MUC* 
+TODO Link to IGV ( via http://localhost:60151/goto?locus=chr17:73951701-73951721 )
 TODO Parsing von Komma als Decimaldelimiter
+TODO Link for Download of Results as XSLX File (incl. genes.tsv, variants.tsv & priorization)
+TODO Filter for CRAP genes (Uwe Kornak: ESRRA, KCNJ11, HLA* und MUC*)
+TODO Inheritance Mode “Automatic (unknown)” als Default
+TODO Add checkbox to analyse actionable genes only (see PMID27854360)
 TODO Depth Filter
 TODO Automatische Proband ID Auswahl falls nicht angegeben
+TODO Set Frequency sources by Checkbox (Talk to MVZ). Possible values are: 
+    #Possible frequencySources:
+    #Thousand Genomes project http://www.1000genomes.org/
+    #   THOUSAND_GENOMES,
+    #ESP project http://evs.gs.washington.edu/EVS/
+    #   ESP_AFRICAN_AMERICAN, ESP_EUROPEAN_AMERICAN, ESP_ALL,
+    #ExAC project http://exac.broadinstitute.org/about
+    #   EXAC_AFRICAN_INC_AFRICAN_AMERICAN, EXAC_AMERICAN,
+    #   EXAC_SOUTH_ASIAN, EXAC_EAST_ASIAN,
+    #   EXAC_FINNISH, EXAC_NON_FINNISH_EUROPEAN,
+    #   EXAC_OTHER
+    #Possible frequencySources:
+    #Thousand Genomes project - http://www.1000genomes.org/ (THOUSAND_GENOMES)
+    #TOPMed - https://www.nhlbi.nih.gov/science/precision-medicine-activities (TOPMED)
+    #UK10K - http://www.uk10k.org/ (UK10K)
+    #ESP project - http://evs.gs.washington.edu/EVS/ (ESP_)
+    #   ESP_AFRICAN_AMERICAN, ESP_EUROPEAN_AMERICAN, ESP_ALL,
+    #ExAC project http://exac.broadinstitute.org/about (EXAC_)
+    #   EXAC_AFRICAN_INC_AFRICAN_AMERICAN, EXAC_AMERICAN,
+    #   EXAC_SOUTH_ASIAN, EXAC_EAST_ASIAN,
+    #   EXAC_FINNISH, EXAC_NON_FINNISH_EUROPEAN,
+    #   EXAC_OTHER
+    #gnomAD - http://gnomad.broadinstitute.org/ (GNOMAD_E, GNOMAD_G)
+
