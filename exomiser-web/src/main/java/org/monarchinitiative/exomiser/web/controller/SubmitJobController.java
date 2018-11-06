@@ -160,7 +160,8 @@ public class SubmitJobController {
         Analysis analysis = buildAnalysis(vcfPath, pedPath, proband, phenotypes, geneticInterval, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
         AnalysisResults analysisResults = exomiser.run(analysis);
 
-//        writeResultsToFile(analysisId, analysis, analysisResults);
+//2018-06-19: Write results to temporary directory for subsequent download
+        writeResultsToFile(analysisId, analysis, analysisResults);
 
         buildResultsModel(model, analysis, analysisResults);
         logger.info("Returning {} results to user", vcfPath.getFileName());
