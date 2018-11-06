@@ -150,17 +150,18 @@
                             <label for="keep-off-target">Keep off-target variants: </label>
                             <div class="form-group">
                                 <select name="keep-off-target" id="keep-off-target" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                               
+                                    <option selected="true" value="true">True</option>                               
+                                    <option value="false">False</option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-sm-4">  
-                            <label for="interval">Minimum Read Depth:</label>
+                            <label for="frequency">Maximum minor allele frequency:</label>
                             <div class="form-group">
                                 <div class="input-group">
-                                    <span class="input-group-addon">Coverage</span>
-                                    <input class="form-control" type="text" name="depth" id="depth" placeholder="e.g. 20"/>
+                                    <span class="input-group-addon">MAF</span>
+                                    <input class="form-control" type="text" name="frequency" id="frequency" value="1.0"/>
+                                    <span class="input-group-addon">%</span>
                                 </div>
                             </div>
 
@@ -184,15 +185,6 @@
                             </div>
                         </div>
                         <div class="col-sm-4">  
-                            <label for="frequency">Maximum minor allele frequency:</label>
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">MAF</span>
-                                    <input class="form-control" type="text" name="frequency" id="frequency" value="1.0"/>
-                                    <span class="input-group-addon">%</span>
-                                </div>
-                            </div>
-
                             <label for="gene-filter">Filter for genes:</label>
                             <div class="form-group">
                                 <select data-placeholder=" e.g. FGFR2" class="chosen-select" multiple="true" tabindex="3" name="genes-to-keep" id="gene-filter">
@@ -206,6 +198,15 @@
                                     <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
                                 </div>
                             </div>
+<!--
+                            <label for="interval">Minimum Read Depth:</label>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <span class="input-group-addon">Coverage</span>
+                                    <input class="form-control" type="text" name="depth" id="depth" placeholder="e.g. 20"/>
+                                </div>
+                            </div>
+-->
                         </div> 
                     </div>
                 </div>
