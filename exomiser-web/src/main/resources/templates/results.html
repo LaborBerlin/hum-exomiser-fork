@@ -173,9 +173,7 @@
                     <div th:if="${geneResultsTruncated} == true" class="alert alert-info" role="alert">
                         For performance reasons only the top <span th:text="${@maxGenes}">300</span> out of a total of
                         <span th:text="${numCandidateGenes}">99999</span> candidate genes are shown here.
-                        If you want to explore these other genes please try the offline version which you can
-                        <a href="https://data.monarchinitiative.org/exomiser/"
-                           class="alert-link">download from the FTP site</a>.
+                        If you want to explore these other genes please contact Johannes Helmuth via <a href="mailto:johannes.helmuth@laborberlin.com" class="alert-link">E-Mail</a>.
                     </div>
 
                     <div class="panel panel-default" th:each="gene, iterStat: ${genes}">
