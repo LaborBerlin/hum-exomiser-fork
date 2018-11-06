@@ -1,9 +1,9 @@
-UI
+TODO
 ################################################################################
 DONE Gzip support
+
 TODO Download von genes.tsv und variants.tsv
+TODO Crap Filter ESRRA, KCNJ11, HLA* und MUC* 
 TODO Parsing von Komma als Decimaldelimiter
-
 TODO Depth Filter
-
 TODO Automatische Proband ID Auswahl falls nicht angegeben
