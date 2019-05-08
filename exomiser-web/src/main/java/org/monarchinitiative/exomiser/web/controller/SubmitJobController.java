@@ -198,7 +198,20 @@ public class SubmitJobController {
                 .hpoIds(phenotypes)
                 .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
                 .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
-                .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
+                .pathogenicitySources(EnumSet.of(PathogenicitySource.POLYPHEN, PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT)); //, PathogenicitySource.CADD
+
+        //Also capture splicing variants
+        analysisBuilder.addVariantEffectFilter(Sets.immutableEnumSet(VariantEffect.SPLICE_REGION_VARIANT));
+
+        //some logging of webset settings
+        logger.info("minimumQuality: {}", minimumQuality);
+        logger.info("removeDbSnp: {}", removeDbSnp);
+        logger.info("keepOffTarget: {}", keepOffTarget);
+        logger.info("keepNonPathogenic: {}", keepNonPathogenic);
+        logger.info("frequency: {}", frequency);
+        logger.info("genesToKeep: {}", genesToKeep);
+        logger.info("geneticInterval: {}", geneticInterval);
+
 
         addFilters(analysisBuilder, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, frequency, genesToKeep, geneticInterval);
         //soon these will run by default
@@ -262,7 +275,8 @@ public class SubmitJobController {
         logger.info("Output dir: {}", outputDir);
         String outFileName = outputDir.toString() + "/results";
         OutputSettings outputSettings = OutputSettings.builder()
-                .numberOfGenesToShow(20)
+                .outputContributingVariantsOnly(false)
+                .numberOfGenesToShow(50)
                 .outputPrefix(outFileName)
                 //OutputFormat.HTML causes issues due to thymeleaf templating - don't use!
                 .outputFormats(EnumSet.of(OutputFormat.TSV_GENE, OutputFormat.TSV_VARIANT, OutputFormat.VCF, OutputFormat.JSON))
