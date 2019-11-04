@@ -58,3 +58,6 @@ exomiser-db/nbactions.xml
 .settings
 .classpath
 .DS_Store
+
+#your-highness
+data
