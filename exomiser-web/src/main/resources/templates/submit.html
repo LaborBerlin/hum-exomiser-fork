@@ -125,34 +125,58 @@
                         </div>
                     </div>
                 </div>
+                <div class="panel panel-default" id="qcfilters">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Quality Filtering Parameters</h3>
+                    </div>
+                    <div class="panel-body">
+                        <label for="depth">Minimum Read Depth (Coverage):</label>
+                        <div class="form-group">
+                            <div class="input-group">
+                                <span class="input-group-addon">Reads</span>
+                                <input class="form-control" type="text" name="depth" id="depth" value="20.0"/>
+                            </div>
+                        </div>
+
+                        <label for="quality">Minimum variant call quality:</label>
+                        <div class="form-group">
+                            <div class="input-group">
+                                <span class="input-group-addon">Phred</span>
+                                <input class="form-control" type="text" name="quality" id="quality" value="30.0"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="panel panel-default" id="filters">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Filtering Parameters</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Data Filtering Parameters</h3>
                     </div>
                     <div class="panel-body">
                         <div class="col-sm-4">
-                            <label for="quality">Minimum variant call quality:</label>
+                            <label for="inheritance">Inheritance model (uses default parameters): </label>
+                            <div class="form-group">
+                                <select name="inheritance" id="inheritance" data-toggle="dropdown" class="chosen-select">
+                                    <option selected="true" value="ANY">Any (Automatic)</option>
+                                    <option value="AUTOSOMAL_DOMINANT">Autosomal dominant</option>
+                                    <option value="AUTOSOMAL_RECESSIVE">Autosomal recessive</option>
+                                    <option value="X_DOMINANT">X-Dominant</option>
+                                    <option value="X_RECESSIVE">X-Recessive</option>
+                                    <option value="MITOCHONDRIAL">Mitochondrial</option>
+                                </select>
+                            </div>
+                            <label for="keep-non-pathogenic">Keep non-pathogenic variants: </label>
+                            <div class="form-group">
+                                <select name="keep-non-pathogenic" id="keep-non-pathogenic" data-toggle="dropdown" class="chosen-select">
+                                    <option value="false">False</option>
+                                    <option selected="true" value="true">True</option>                                
+                                </select>
+                            </div>
+                            <label for="interval">Genetic interval:</label>
                             <div class="form-group">
                                 <div class="input-group">
-                                    <span class="input-group-addon">Phred</span>
-                                    <input class="form-control" type="text" name="quality" id="quality" placeholder="e.g. 30.0"/>
+                                    <span class="input-group-addon">Chr</span>
+                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
                                 </div>
-                            </div>
-
-                            <label for="remove-dbsnp">Remove all dbSNP variants: </label>
-                            <div class="form-group">
-                                <select name="remove-dbsnp" id="remove-dbsnp" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                               
-                                </select>
-                            </div>
-
-                            <label for="keep-off-target">Keep off-target variants: </label>
-                            <div class="form-group">
-                                <select name="keep-off-target" id="keep-off-target" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>                               
-                                    <option value="true">True</option>
-                                </select>
                             </div>
                         </div>
                         <div class="col-sm-4">  
@@ -164,50 +188,27 @@
                                     <span class="input-group-addon">%</span>
                                 </div>
                             </div>
-
-                            <label for="keep-non-pathogenic">Keep non-pathogenic variants: </label>
+                            <label for="keep-off-target">Keep off-target variants: </label>
                             <div class="form-group">
-                                <select name="keep-non-pathogenic" id="keep-non-pathogenic" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                                
+                                <select name="keep-off-target" id="keep-off-target" data-toggle="dropdown" class="chosen-select">
+                                    <option value="false">False</option>                               
+                                    <option selected="true" value="true">True</option>
                                 </select>
                             </div>
-
-                            <label for="inheritance">Inheritance model: </label>
-                            <div class="form-group">
-                                <select name="inheritance" id="inheritance" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="ANY">Any (Automatic)</option>
-                                    <option value="AUTOSOMAL_DOMINANT">Autosomal dominant</option>
-                                    <option value="AUTOSOMAL_RECESSIVE">Autosomal recessive</option>
-                                    <option value="X_DOMINANT">X-Dominant</option>
-                                    <option value="X_RECESSIVE">X-Recessive</option>
-                                    <option value="MITOCHONDRIAL">Mitochondrial</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">  
                             <label for="gene-filter">Filter for genes:</label>
                             <div class="form-group">
                                 <select data-placeholder=" e.g. FGFR2" class="chosen-select" multiple="true" tabindex="3" name="genes-to-keep" id="gene-filter">
                                 </select>
                             </div>
-
-                            <label for="interval">Genetic interval:</label>
+                        </div>
+                        <div class="col-sm-4">  
+                            <label for="remove-dbsnp">Remove all dbSNP variants: </label>
                             <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">Chr</span>
-                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
-                                </div>
+                                <select name="remove-dbsnp" id="remove-dbsnp" data-toggle="dropdown" class="chosen-select">
+                                    <option selected="true" value="false">False</option>
+                                    <option value="true">True</option>                               
+                                </select>
                             </div>
-<!--
-                            <label for="interval">Minimum Read Depth:</label>
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">Coverage</span>
-                                    <input class="form-control" type="text" name="depth" id="depth" placeholder="e.g. 20"/>
-                                </div>
-                            </div>
--->
                         </div> 
                     </div>
                 </div>
@@ -219,9 +220,9 @@
                         <div class="col-sm-4">
                             <label for="prioritiser">Prioritise genes using:</label>
                             <select name="prioritiser" id="prioritiser_dropdown" class="chosen-select">
-                                <option selected="true" value="HIPHIVE_PRIORITY">hiPHIVE (compare phenotypes against all species)</option>
+                                <option value="HIPHIVE_PRIORITY">hiPHIVE (compare phenotypes against all species)</option>
                                 <option value="PHIVE_PRIORITY">PHIVE (compare phenotypes against mouse only)</option>
-                                <option value="PHENIX_PRIORITY">PhenIX (compare phenotypes against human only)</option>
+                                <option selected="true" value="PHENIX_PRIORITY">PhenIX (compare phenotypes against human only)</option>
                                 <option value="NONE">None - filter only</option>
                                 <!--<option value="EXOMEWALKER_PRIORITY">ExomeWalker (protein interaction)</option>-->
                             </select>
