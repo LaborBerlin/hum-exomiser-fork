@@ -106,22 +106,29 @@ public class SubmitJobController {
 
     @PostMapping(value = SUBMIT_PAGE)
     public String submit(
-            @RequestParam(value = "vcf") MultipartFile vcfFile,
-            @RequestParam(value = "ped", required = false) MultipartFile pedFile,
-            @RequestParam(value = "proband", required = false) String proband,
-            @RequestParam(value = "disease", required = false) String diseaseId,
-            @RequestParam(value = "phenotypes", required = false) List<String> phenotypes,
-            @RequestParam(value = "min-call-quality", required = false, defaultValue = "0") Float minimumQuality,
-            @RequestParam(value = "genetic-interval", required = false, defaultValue = "") String geneticInterval,
-            @RequestParam("frequency") String frequency,
-            @RequestParam("remove-dbsnp") Boolean removeDbSnp,
-            @RequestParam("keep-non-pathogenic") Boolean keepNonPathogenic,
-            @RequestParam("keep-off-target") Boolean keepOffTarget,
-            @RequestParam("inheritance") String modeOfInheritance,
-            @RequestParam(value = "genes-to-keep", required = false) List<String> genesToFilter,
-            @RequestParam("prioritiser") String prioritiser,
-            HttpSession session,
-            Model model) {
+        //input-data
+        @RequestParam(value = "vcf") MultipartFile vcfFile,
+        @RequestParam(value = "ped", required = false) MultipartFile pedFile,
+        @RequestParam(value = "proband", required = false) String proband,
+        //Sample Phenotypes
+        @RequestParam(value = "disease", required = false) String diseaseId,
+        @RequestParam(value = "phenotypes", required = false) List<String> phenotypes,
+        //Quality Filtering Parameters
+        @RequestParam(value = "min-depth", required = false, defaultValue = "0") Float minimumDepth,
+        @RequestParam(value = "min-call-quality", required = false, defaultValue = "0") Float minimumQuality,
+        //Data Filtering Parameters
+        @RequestParam("keep-non-pathogenic") Boolean keepNonPathogenic,
+        @RequestParam("keep-off-target") Boolean keepOffTarget,
+        @RequestParam("remove-dbsnp") Boolean removeDbSnp,
+        @RequestParam(value = "genetic-interval", required = false, defaultValue = "") String geneticInterval,
+        @RequestParam(value = "genes-to-keep", required = false) List<String> genesToFilter,
+        //Inheritance Filtering Parameters
+        @RequestParam("inheritance") String modeOfInheritance,
+        @RequestParam("frequency") String frequency,
+        //prioritiser
+        @RequestParam("prioritiser") String prioritiser,
+        HttpSession session,
+        Model model) {
 
         UUID analysisId = UUID.randomUUID();
         logger.info("Analysis id: {}", analysisId);
@@ -157,7 +164,7 @@ public class SubmitJobController {
             logger.info("{} contains {} variants - within set limit of {}", vcfPath, numVariantsInSample, maxVariants);
         }
 
-        Analysis analysis = buildAnalysis(vcfPath, pedPath, proband, phenotypes, geneticInterval, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
+        Analysis analysis = buildAnalysis(vcfPath, pedPath, proband, phenotypes, geneticInterval, minimumQuality, minimumDepth, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
         AnalysisResults analysisResults = exomiser.run(analysis);
 
 //2018-06-19: Write results to temporary directory for subsequent download
@@ -176,7 +183,7 @@ public class SubmitJobController {
         return priorityService.getHpoIdsForDiseaseId(diseaseId);
     }
 
-    private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
+    private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Float minimumDepth, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
 
         //AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
         //        .analysisMode(AnalysisMode.PASS_ONLY)
@@ -189,7 +196,7 @@ public class SubmitJobController {
         //        .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
         //        .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
         AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
-                .analysisMode(AnalysisMode.PASS_ONLY)
+                .analysisMode(AnalysisMode.FULL)
                 .genomeAssembly(GenomeAssembly.HG19)
                 .vcfPath(vcfPath)
                 .pedigree((pedPath == null) ? Pedigree.empty() : PedFiles.readPedigree(pedPath))
@@ -202,22 +209,27 @@ public class SubmitJobController {
         //Also capture splicing variants
         analysisBuilder.addVariantEffectFilter(Sets.immutableEnumSet(VariantEffect.SPLICE_REGION_VARIANT));
 
-        //some logging of webset settings
-        logger.info("minimumQuality: {}", minimumQuality);
-        logger.info("removeDbSnp: {}", removeDbSnp);
-        logger.info("keepOffTarget: {}", keepOffTarget);
-        logger.info("keepNonPathogenic: {}", keepNonPathogenic);
-        logger.info("frequency: {}", frequency);
-        logger.info("genesToKeep: {}", genesToKeep);
-        logger.info("geneticInterval: {}", geneticInterval);
-
-
         addFilters(analysisBuilder, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, frequency, genesToKeep, geneticInterval);
         //soon these will run by default
         analysisBuilder.addInheritanceFilter();
         analysisBuilder.addOmimPrioritiser();
         //add the users choice of prioritiser
         addPrioritiser(analysisBuilder, prioritiser);
+
+        //log of webform setting
+        logger.info("User-specified Quality Filtering Parameters:");
+        logger.info("  minimumDepth: {}", minimumDepth);
+        logger.info("  minimumQuality: {}", minimumQuality);
+        logger.info("User-specified Data Filtering Parameters:");
+        logger.info("  modeOfInheritance: {}", modeOfInheritance);
+        logger.info("  frequency: {}", frequency);
+        logger.info("  keepNonPathogenic: {}", keepNonPathogenic);
+        logger.info("  keepOffTarget: {}", keepOffTarget);
+        logger.info("  removeDbSnp: {}", removeDbSnp);
+        logger.info("  geneticInterval: {}", geneticInterval);
+        logger.info("  genesToKeep: {}", genesToKeep);
+        logger.info("User-specified Prioritiser:");
+        logger.info("  prioritiser: {}", prioritiser);
 
         return analysisBuilder.build();
     }
