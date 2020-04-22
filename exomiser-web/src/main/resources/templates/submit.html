@@ -97,37 +97,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="panel panel-default">
-                    <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-tasks"></span> Enter Sample Phenotypes</h3>
-                    </div>
-                    <div class="panel-body">
-
-                        <div class="col-sm-6">
-                            <label for="omimid">Phenotypes associated with Mendelian disease:</label>
-                            <div class="form-group" id="disease-selector">
-                                <select title="" class="chosen-select" data-placeholder="e.g. Pfeiffer syndrome" name="disease" id="omimid" >
-                                    <option value=""></option>
-                                    <!--<input class="mediumlong james {url:'/resources/databases/exomiser/query/form/autocomplete',varname:'term',minlength:1}" name="omimid" id="omimid" type="text" autocomplete="off" placeholder="PFEIFFER SYNDROME"/>-->
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="col-sm-6">
-                            <label for="hpo">Clinical phenotypes:</label>
-                            <div class="form-group">
-                                <select data-placeholder=" e.g. Craniosynostosis, Malar flattening, Wide nasal bridge" class="chosen-select" multiple="true" tabindex="4" name="phenotypes" id="hpo">
-                                </select>
-                                <!--<input class="form-control" type="text" name="hpo" id="hpo" placeholder="Craniosynostosis, Malar flattening, Wide nasal bridge"></input>
-                                        <input name="hpo" id="hpo" type="text" autocomplete="off" class="medium james {url:'/resources/databases/exomiser/query/form/autocomplete2',varname:'term',restricted:1,minlength:1,multiple:1,keydelay:100}" placeholder="Craniosynostosis, Malar flattening, Wide nasal bridge"/>-->
-                                <p class="help-block">Input terms from the <a href="http://www.human-phenotype-ontology.org/">HPO</a>. <i>These will override any phenotypes derived from the specified disease!</i></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="panel panel-default" id="qcfilters">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Quality Filtering Parameters</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Quality Filtering Parameters</h3>
                     </div>
                     <div class="panel-body">
 
@@ -155,10 +127,10 @@
                 </div>
                 <div class="panel panel-default" id="filters">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Filtering Parameters</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Data Filtering Parameters</h3>
                     </div>
                     <div class="panel-body">
-
+                        <div class="col-sm-4">  
                             <label for="keep-non-pathogenic">Keep non-pathogenic variants: </label>
                             <div class="form-group">
                                 <select name="keep-non-pathogenic" id="keep-non-pathogenic" data-toggle="dropdown" class="chosen-select">
@@ -203,9 +175,10 @@
                         </div> 
                     </div>
                 </div>
-                <div class="panel panel-default" id="filters">
+
+                <div class="panel panel-default" id="ihfilters">
                     <div class="panel-heading">
-zR                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Choose Inheritance Model</h3>
+                       <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Inheritance Filtering Parameters</h3>
                     </div>
                     <div class="panel-body">
 
@@ -246,7 +219,36 @@ zR                        <h3 class="panel-title"><span class="glyphicon glyphic
                 </div>
                 <div class="panel panel-default">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-sort"></span> Choose Prioritiser</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-tasks"></span> Set Variant Prioritisation Parameters </h3>
+                    </div>
+                    <div class="panel-body">
+
+                        <div class="col-sm-6">
+                            <label for="omimid">Phenotypes associated with Mendelian disease:</label>
+                            <div class="form-group" id="disease-selector">
+                                <select title="" class="chosen-select" data-placeholder="e.g. Pfeiffer syndrome" name="disease" id="omimid" >
+                                    <option value=""></option>
+                                    <!--<input class="mediumlong james {url:'/resources/databases/exomiser/query/form/autocomplete',varname:'term',minlength:1}" name="omimid" id="omimid" type="text" autocomplete="off" placeholder="PFEIFFER SYNDROME"/>-->
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-6">
+                            <label for="hpo">Clinical phenotypes:</label>
+                            <div class="form-group">
+                                <select data-placeholder=" e.g. Craniosynostosis, Malar flattening, Wide nasal bridge" class="chosen-select" multiple="true" tabindex="4" name="phenotypes" id="hpo">
+                                </select>
+                                <!--<input class="form-control" type="text" name="hpo" id="hpo" placeholder="Craniosynostosis, Malar flattening, Wide nasal bridge"></input>
+                                        <input name="hpo" id="hpo" type="text" autocomplete="off" class="medium james {url:'/resources/databases/exomiser/query/form/autocomplete2',varname:'term',restricted:1,minlength:1,multiple:1,keydelay:100}" placeholder="Craniosynostosis, Malar flattening, Wide nasal bridge"/>-->
+                                <p class="help-block">Input terms from the <a href="http://www.human-phenotype-ontology.org/">HPO</a>. <i>These will override any phenotypes derived from the specified disease!</i></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-sort"></span> Choose Variant Prioritiser</h3>
                     </div>
                     <div class="panel-body">
                         <div class="col-sm-4">
