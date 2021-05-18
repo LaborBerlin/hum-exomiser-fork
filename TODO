@@ -6,15 +6,16 @@ TODO
 ################################################################################
 DONE Gzip support
 DONE Update Fork to Version 11.0 (git merge upstream/master)
+DONE Inheritance Mode “Automatic (unknown)” als Default
+DONE Add local DB
+DONE Automatische Proband ID Auswahl falls nicht angegeben
 
-TODO Link to IGV ( via http://localhost:60151/goto?locus=chr17:73951701-73951721 )
 TODO Parsing von Komma als Decimaldelimiter
-TODO Link for Download of Results as XSLX File (incl. genes.tsv, variants.tsv & priorization)
-TODO Filter for CRAP genes (Uwe Kornak: ESRRA, KCNJ11, HLA* und MUC*)
-TODO Inheritance Mode “Automatic (unknown)” als Default
 TODO Add checkbox to analyse actionable genes only (see PMID27854360)
+TODO Link to IGV ( via http://localhost:60151/goto?locus=chr17:73951701-73951721 )
+TODO Link for Download of Results as XSLX File (incl. genes.tsv, variants.tsv & priorization)
 TODO Depth Filter
-TODO Automatische Proband ID Auswahl falls nicht angegeben
+TODO Filter for CRAP genes (Uwe Kornak: ESRRA, KCNJ11, HLA* und MUC*)
 TODO Set Frequency sources by Checkbox (Talk to MVZ). Possible values are: 
     #Possible frequencySources:
     #Thousand Genomes project http://www.1000genomes.org/
