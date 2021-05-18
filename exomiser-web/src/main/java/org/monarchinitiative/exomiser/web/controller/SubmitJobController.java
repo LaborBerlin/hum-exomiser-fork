@@ -185,6 +185,7 @@ public class SubmitJobController {
 
     private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Float minimumDepth, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
 
+        //helmuth 2021-05-12: Use local frequency db and external sources
         //AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
         //        .analysisMode(AnalysisMode.PASS_ONLY)
         //        .genomeAssembly(GenomeAssembly.HG19)
@@ -203,8 +204,8 @@ public class SubmitJobController {
                 .probandSampleName(proband)
                 .hpoIds(phenotypes)
                 .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
-                .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
-                .pathogenicitySources(EnumSet.of(PathogenicitySource.POLYPHEN, PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT)); //, PathogenicitySource.CADD
+                .frequencySources(FrequencySource.ALL_LOCAL_AND_EXTERNAL_FREQ_SOURCES)
+                .pathogenicitySources(EnumSet.of(PathogenicitySource.POLYPHEN, PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.CADD));
 
         //Also capture splicing variants
         analysisBuilder.addVariantEffectFilter(Sets.immutableEnumSet(VariantEffect.SPLICE_REGION_VARIANT));
