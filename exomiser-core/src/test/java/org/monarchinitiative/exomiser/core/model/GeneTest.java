@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,17 +25,19 @@
  */
 package org.monarchinitiative.exomiser.core.model;
 
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.monarchinitiative.exomiser.core.filters.FilterResult;
 import org.monarchinitiative.exomiser.core.filters.FilterType;
 import org.monarchinitiative.exomiser.core.genome.TestFactory;
-import org.monarchinitiative.exomiser.core.prioritisers.ExomeWalkerPriorityResult;
-import org.monarchinitiative.exomiser.core.prioritisers.MockPriorityResult;
-import org.monarchinitiative.exomiser.core.prioritisers.PriorityResult;
-import org.monarchinitiative.exomiser.core.prioritisers.PriorityType;
+import org.monarchinitiative.exomiser.core.prioritisers.*;
+import org.monarchinitiative.exomiser.core.prioritisers.model.Disease;
+import org.monarchinitiative.exomiser.core.writers.JsonVariantMixin;
+import org.monarchinitiative.svart.Variant;
 
 import java.util.*;
 
@@ -73,9 +75,9 @@ public class GeneTest {
     @BeforeEach
     public void setUp() {
         // variant1 is the first one in in FGFR2 gene
-        variantEvaluation1 = VariantEvaluation.builder(10, 123353320, "C", "G").build();
+        variantEvaluation1 = TestFactory.variantBuilder(10, 123353320, "C", "G").build();
         // variant2 is the second one in in FGFR2 gene
-        variantEvaluation2 = VariantEvaluation.builder(10, 123353325, "T", "A").build();
+        variantEvaluation2 = TestFactory.variantBuilder(10, 123353325, "T", "A").build();
 
         instance = newGeneOne();
     }
@@ -352,10 +354,25 @@ public class GeneTest {
         variantEvaluation2.addFilterResult(FAIL_VARIANT_FILTER_RESULT);
         instance.addVariant(variantEvaluation2);
 
-        List<VariantEvaluation> passedVariantEvaluations = Arrays.asList(variantEvaluation1);
+        List<VariantEvaluation> passedVariantEvaluations = List.of(variantEvaluation1);
 
         assertThat(instance.getPassedVariantEvaluations(), equalTo(passedVariantEvaluations));
     }
+
+    @Test
+    public void testGetNonContributingPassedVariantEvaluations() {
+        variantEvaluation1.addFilterResult(PASS_VARIANT_FILTER_RESULT);
+        variantEvaluation1.setContributesToGeneScoreUnderMode(ModeOfInheritance.AUTOSOMAL_DOMINANT);
+        instance.addVariant(variantEvaluation1);
+
+        variantEvaluation2.addFilterResult(PASS_VARIANT_FILTER_RESULT);
+        instance.addVariant(variantEvaluation2);
+
+        List<VariantEvaluation> nonContributingPassedVariantEvaluations = List.of(variantEvaluation2);
+
+        assertThat(instance.getNonContributingPassedVariantEvaluations(), equalTo(nonContributingPassedVariantEvaluations));
+    }
+
 
     @Test
     public void testAddVariantAfterGeneIsFilteredAppliesPassGeneFilterResultsToVariant() {
@@ -402,6 +419,16 @@ public class GeneTest {
         instance.addPriorityResult(omimPriorityResult);
         instance.addPriorityResult(new ExomeWalkerPriorityResult(instance.getEntrezGeneID(), instance.getGeneSymbol(), 0.0d));
         assertThat(instance.getPriorityResult(priorityType), equalTo(omimPriorityResult));
+    }
+
+    @Test
+    public void testCanAddAndRetrievePriorityScoreByPriorityClass() {
+        MockPriorityResult mockPriorityResult = new MockPriorityResult(PriorityType.HIPHIVE_PRIORITY, instance.getEntrezGeneID(), instance
+                .getGeneSymbol(), 1d);
+        instance.addPriorityResult(mockPriorityResult);
+
+        assertThat(instance.getPriorityResult(MockPriorityResult.class), equalTo(mockPriorityResult));
+        assertThat(instance.getPriorityResult(HiPhivePriorityResult.class), equalTo(null));
     }
 
     @Test
@@ -509,7 +536,7 @@ public class GeneTest {
     @Test
     public void testIsCompatibleWithXfalseWhenVariantIsNotCompatibleWithX() {
         instance = newGeneOne();
-        instance.addVariant(VariantEvaluation.builder(1, 1, "A", "T").build());
+        instance.addVariant(TestFactory.variantBuilder(1, 1, "A", "T").build());
         assertThat(instance.isXChromosomal(), is(false));
     }
 
@@ -517,7 +544,7 @@ public class GeneTest {
     public void testIsCompatibleWithXtrueWhenVariantIsCompatibleWithX() {
         int X_CHROMOSOME = 23;
         instance = newGeneOne();
-        instance.addVariant(VariantEvaluation.builder(X_CHROMOSOME, 1, "A", "T").build());
+        instance.addVariant(TestFactory.variantBuilder(X_CHROMOSOME, 1, "A", "T").build());
         assertThat(instance.isXChromosomal(), is(true));
     }
 
@@ -530,7 +557,7 @@ public class GeneTest {
     @Test
     public void testIsCompatibleWithYisFalseWhenVariantIsNotCompatibleWithX() {
         instance = newGeneOne();
-        instance.addVariant(VariantEvaluation.builder(1, 1, "A", "T").build());
+        instance.addVariant(TestFactory.variantBuilder(1, 1, "A", "T").build());
         assertThat(instance.isYChromosomal(), is(false));
     }
 
@@ -538,7 +565,7 @@ public class GeneTest {
     public void testIsCompatibleWithYisTrueWhenVariantIsCompatibleWithX() {
         int Y_CHROMOSOME = 24;
         instance = newGeneOne();
-        instance.addVariant(VariantEvaluation.builder(Y_CHROMOSOME, 1, "A", "T").build());
+        instance.addVariant(TestFactory.variantBuilder(Y_CHROMOSOME, 1, "A", "T").build());
         assertThat(instance.isYChromosomal(), is(true));
     }
 
@@ -555,7 +582,7 @@ public class GeneTest {
         instance.addGeneScore(geneScoreAD);
 
         assertThat(instance.getGeneScoreForMode(modeOfInheritanceAD), equalTo(geneScoreAD));
-        assertThat(instance.getGeneScores(), equalTo(ImmutableList.of(geneScoreAD)));
+        assertThat(instance.getGeneScores(), equalTo(List.of(geneScoreAD)));
 
         ModeOfInheritance modeOfInheritanceAR = ModeOfInheritance.AUTOSOMAL_RECESSIVE;
         GeneScore geneScoreAR = GeneScore.builder()
@@ -565,7 +592,7 @@ public class GeneTest {
                 .build();
         instance.addGeneScore(geneScoreAR);
 
-        assertThat(instance.getGeneScores(), equalTo(ImmutableList.of(geneScoreAD, geneScoreAR)));
+        assertThat(instance.getGeneScores(), equalTo(List.of(geneScoreAD, geneScoreAR)));
 
     }
 
@@ -582,18 +609,18 @@ public class GeneTest {
         assertThat(instance.getVariantScore(), equalTo(defaultGeneScore.getVariantScore()));
         assertThat(instance.getPriorityScore(), equalTo(defaultGeneScore.getPhenotypeScore()));
         assertThat(instance.getCombinedScore(), equalTo(defaultGeneScore.getCombinedScore()));
-        assertThat(instance.getGeneScores(), equalTo(ImmutableList.of()));
+        assertThat(instance.getGeneScores(), equalTo(List.of()));
 
         //test returns zero with no score
-        assertThat(instance.getPriorityScoreForMode(ModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(0f));
+        assertThat(instance.getPriorityScoreForMode(ModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(0d));
 
-        float phenotypeScore = 1f;
+        double phenotypeScore = 1d;
         GeneScore firstGeneScore = GeneScore.builder()
                 .geneIdentifier(instance.getGeneIdentifier())
                 .modeOfInheritance(ModeOfInheritance.AUTOSOMAL_DOMINANT)
-                .phenotypeScore(0.5f)
-                .variantScore(0.5f)
-                .combinedScore(0.5f)
+                .phenotypeScore(0.5d)
+                .variantScore(0.5d)
+                .combinedScore(0.5d)
                 .build();
         instance.addGeneScore(firstGeneScore);
 
@@ -602,14 +629,14 @@ public class GeneTest {
         assertThat(instance.getVariantScore(), equalTo(firstGeneScore.getVariantScore()));
         assertThat(instance.getPriorityScore(), equalTo(firstGeneScore.getPhenotypeScore()));
         assertThat(instance.getCombinedScore(), equalTo(firstGeneScore.getCombinedScore()));
-        assertThat(instance.getGeneScores(), equalTo(ImmutableList.of(firstGeneScore)));
+        assertThat(instance.getGeneScores(), equalTo(List.of(firstGeneScore)));
 
         GeneScore secondGeneScore = GeneScore.builder()
                 .geneIdentifier(instance.getGeneIdentifier())
                 .modeOfInheritance(ModeOfInheritance.AUTOSOMAL_RECESSIVE)
-                .phenotypeScore(1f)
-                .variantScore(1f)
-                .combinedScore(1f)
+                .phenotypeScore(1d)
+                .variantScore(1d)
+                .combinedScore(1d)
                 .build();
         instance.addGeneScore(secondGeneScore);
 
@@ -618,7 +645,7 @@ public class GeneTest {
         assertThat(instance.getVariantScore(), equalTo(secondGeneScore.getVariantScore()));
         assertThat(instance.getPriorityScore(), equalTo(secondGeneScore.getPhenotypeScore()));
         assertThat(instance.getCombinedScore(), equalTo(secondGeneScore.getCombinedScore()));
-        assertThat(instance.getGeneScores(), equalTo(ImmutableList.of(firstGeneScore, secondGeneScore)));
+        assertThat(instance.getGeneScores(), equalTo(List.of(firstGeneScore, secondGeneScore)));
     }
 
     @Test
@@ -626,9 +653,9 @@ public class GeneTest {
         ModeOfInheritance modeOfInheritance = ModeOfInheritance.AUTOSOMAL_DOMINANT;
         assertThat(instance.getGeneScores().isEmpty(), is(true));
         //test returns zero with no score
-        assertThat(instance.getPriorityScoreForMode(modeOfInheritance), equalTo(0f));
+        assertThat(instance.getPriorityScoreForMode(modeOfInheritance), equalTo(0d));
 
-        float phenotypeScore = 1f;
+        double phenotypeScore = 1d;
         GeneScore firstGeneScore = GeneScore.builder()
                 .phenotypeScore(phenotypeScore)
                 .geneIdentifier(instance.getGeneIdentifier())
@@ -637,7 +664,7 @@ public class GeneTest {
         instance.addGeneScore(firstGeneScore);
         assertThat(instance.getPriorityScoreForMode(modeOfInheritance), equalTo(phenotypeScore));
 
-        float secondScore = 1.0f;
+        double secondScore = 1d;
         GeneScore secondGeneScore = GeneScore.builder()
                 .phenotypeScore(phenotypeScore)
                 .geneIdentifier(instance.getGeneIdentifier())
@@ -695,6 +722,44 @@ public class GeneTest {
 
     @Test
     public void testToString() {
-        System.out.println(instance);
+        assertThat(instance.toString(), equalTo("Gene{geneSymbol='GENE1', entrezGeneId=1234567, compatibleWith=[], filterStatus=PASSED, failedFilterTypes=[], passedFilterTypes=[], combinedScore=0.0, phenotypeScore=0.0, variantScore=0.0, variants=0}"));
+    }
+
+    @Test
+    void testGetAssociatedDiseases() {
+        Gene instance = TestFactory.newGeneFGFR2();
+        assertThat(instance.getAssociatedDiseases().isEmpty(), is(true));
+        Disease pfeifferSyndrome = Disease.builder().diseaseId("OMIM:101600").diseaseName("Pfeiffer syndrome").build();
+        OmimPriorityResult priorityResult = new OmimPriorityResult(instance.getEntrezGeneID(), instance.getGeneSymbol(), 1.0, List.of(pfeifferSyndrome), Map.of());
+        instance.addPriorityResult(priorityResult);
+        assertThat(instance.getAssociatedDiseases(), equalTo(List.of(pfeifferSyndrome)));
+    }
+
+    @Test
+    public void testGetCompatibleGeneScores() throws Exception {
+        Gene instance = TestFactory.newGeneFGFR2();
+        // Hmm... this is a bit of a WFT - why does this need to be set rather than computed from the variants?
+        //  ... because it gets set once by the InheritanceModeAnalyser after all the variants have been filtered
+        instance.setCompatibleInheritanceModes(EnumSet.of(ModeOfInheritance.AUTOSOMAL_DOMINANT));
+        assertThat(instance.getCompatibleGeneScores().isEmpty(), is(true));
+
+        GeneScore adGeneScore = GeneScore.builder()
+                .geneIdentifier(instance.getGeneIdentifier())
+                .modeOfInheritance(ModeOfInheritance.AUTOSOMAL_DOMINANT)
+                .phenotypeScore(0.5d)
+                .variantScore(0.5d)
+                .combinedScore(0.5d)
+                .pValue(0.0000001)
+                .build();
+
+        instance.addGeneScore(adGeneScore);
+
+        ObjectWriter objectWriter = new ObjectMapper()
+                .addMixIn(Variant.class, JsonVariantMixin.class)
+                .setDefaultPropertyInclusion(JsonInclude.Include.NON_DEFAULT)
+                .writerWithDefaultPrettyPrinter();
+        System.out.println(objectWriter.writeValueAsString(instance));
+
+        assertThat(instance.getCompatibleGeneScores(), equalTo(List.of(adGeneScore)));
     }
 }

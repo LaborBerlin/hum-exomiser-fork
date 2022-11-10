@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,11 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.monarchinitiative.exomiser.core.phenotype.Organism;
 import org.monarchinitiative.exomiser.core.phenotype.PhenotypeTerm;
-import org.monarchinitiative.exomiser.core.prioritisers.model.GeneModelPhenotypeMatch;
-import org.monarchinitiative.exomiser.core.prioritisers.model.GeneOrthologModel;
+import org.monarchinitiative.exomiser.core.prioritisers.model.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -59,14 +56,21 @@ public class HiPhivePriorityResultTest {
     
     @BeforeEach
     public void setUp() {
-        queryPhenotypeTerms = new ArrayList<>();
-        phenotypeEvidence = new ArrayList<>();
-        ppiEvidence = new ArrayList<>();
+        queryPhenotypeTerms = List.of();
+        phenotypeEvidence = List.of();
+        ppiEvidence = List.of();
         instance = new HiPhivePriorityResult(geneId, geneSymbol, score, queryPhenotypeTerms, phenotypeEvidence, ppiEvidence, ppiScore, matchesCandidateGene);
     }
 
     private GeneModelPhenotypeMatch stubGeneModelPhenotypeMatch(Organism organism, double score) {
-        GeneOrthologModel model = new GeneOrthologModel("gene1_model1", organism, 12345, geneSymbol, "MGI:12345", "gene1", Collections.emptyList());
+        GeneModel model;
+        // yuk! Broken generics :(
+        if (organism == Organism.HUMAN) {
+            Disease disease = Disease.builder().diseaseId("OMIM:12345").diseaseName("disease1").associatedGeneId(12345).associatedGeneSymbol(geneSymbol).build();
+            model = new GeneDiseaseModel("gene1_disease1", organism, disease);
+        } else {
+            model = new GeneOrthologModel("gene1_model1", organism, 12345, geneSymbol, "MGI:12345", "gene1", Collections.emptyList());
+        }
         return new GeneModelPhenotypeMatch(score, model, Collections.emptyList());
     }
         
@@ -110,16 +114,29 @@ public class HiPhivePriorityResultTest {
     public void testGetHumanScoreIsZeroWithNoDiseaseEvidence() {
         assertThat(instance.getHumanScore(), equalTo(0d));
     }
-    
+
     @Test
     public void testGetHumanScoreMatchesModelScore() {
-        double modelScore = 1d;
-        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.HUMAN, modelScore);
+        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.HUMAN, 1d);
 
-        List<GeneModelPhenotypeMatch> models = Arrays.asList(geneModel);
+        List<GeneModelPhenotypeMatch> models = List.of(geneModel);
         instance = new HiPhivePriorityResult(geneId, geneSymbol, score, queryPhenotypeTerms, models, ppiEvidence, ppiScore, false);
 
-        assertThat(instance.getHumanScore(), equalTo(modelScore));
+        assertThat(instance.getHumanScore(), equalTo(geneModel.getScore()));
+    }
+
+    @Test
+    public void testGetHumanScoreMatchesTopModelScore() {
+        GeneModelPhenotypeMatch topGeneModel = stubGeneModelPhenotypeMatch(Organism.HUMAN, 1d);
+        GeneModelPhenotypeMatch poorMatchModel = stubGeneModelPhenotypeMatch(Organism.HUMAN, 0.5);
+
+        // note these are provided with the worst score first to test that the HiPhivePriorityResult orders things internally
+        List<GeneModelPhenotypeMatch> models = List.of(poorMatchModel, topGeneModel);
+        instance = new HiPhivePriorityResult(geneId, geneSymbol, score, queryPhenotypeTerms, models, ppiEvidence, ppiScore, false);
+
+        assertThat(instance.getHumanScore(), equalTo(topGeneModel.getScore()));
+        assertThat(instance.getPhenotypeEvidence(), equalTo(List.of(topGeneModel)));
+        assertThat(instance.getDiseaseMatches(), equalTo(List.of(topGeneModel, poorMatchModel)));
     }
 
     @Test
@@ -129,13 +146,12 @@ public class HiPhivePriorityResultTest {
 
     @Test
     public void testGetMouseScoreMatchesModelScore() {
-        double modelScore = 1d;
-        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.MOUSE, modelScore);
+        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.MOUSE, 1d);
 
-        List<GeneModelPhenotypeMatch> models = Arrays.asList(geneModel);
+        List<GeneModelPhenotypeMatch> models = List.of(geneModel);
         instance = new HiPhivePriorityResult(geneId, geneSymbol, score, queryPhenotypeTerms, models, ppiEvidence, ppiScore, false);
 
-        assertThat(instance.getMouseScore(), equalTo(modelScore));
+        assertThat(instance.getMouseScore(), equalTo(geneModel.getScore()));
     }
     
     @Test
@@ -145,13 +161,12 @@ public class HiPhivePriorityResultTest {
 
     @Test
     public void testGetFishScoreMatchesModelScore() {
-        double modelScore = 1d;
-        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.FISH, modelScore);
+        GeneModelPhenotypeMatch geneModel = stubGeneModelPhenotypeMatch(Organism.FISH, 1d);
 
-        List<GeneModelPhenotypeMatch> models = Arrays.asList(geneModel);
+        List<GeneModelPhenotypeMatch> models = List.of(geneModel);
         instance = new HiPhivePriorityResult(geneId, geneSymbol, score, queryPhenotypeTerms, models, ppiEvidence, ppiScore, false);
 
-        assertThat(instance.getFishScore(), equalTo(modelScore));
+        assertThat(instance.getFishScore(), equalTo(geneModel.getScore()));
     }
 
     @Test
@@ -171,6 +186,6 @@ public class HiPhivePriorityResultTest {
 
     @Test
     public void testToString() {
-        System.out.println(instance.toString());
+        assertThat(instance.toString(), equalTo("HiPhivePriorityResult{geneId=12345, geneSymbol='FGFR2', score=0.87, humanScore=0.0, mouseScore=0.0, fishScore=0.0, ppiScore=0.6, candidateGeneMatch=true, queryPhenotypeTerms=[], phenotypeEvidence=[], ppiEvidence=[]}"));
     }
 }

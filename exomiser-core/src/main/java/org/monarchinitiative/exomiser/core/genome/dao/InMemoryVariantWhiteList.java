@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ import org.monarchinitiative.exomiser.core.model.AlleleProtoAdaptor;
 import org.monarchinitiative.exomiser.core.model.Variant;
 import org.monarchinitiative.exomiser.core.proto.AlleleProto;
 
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -54,7 +53,7 @@ public class InMemoryVariantWhiteList implements VariantWhiteList {
     }
 
     private InMemoryVariantWhiteList(Set<AlleleProto.AlleleKey> whiteList) {
-        this.whiteList = new HashSet<>(whiteList);
+        this.whiteList = Set.copyOf(whiteList);
     }
 
     @Override
@@ -68,6 +67,19 @@ public class InMemoryVariantWhiteList implements VariantWhiteList {
         return "InMemoryVariantWhiteList{" +
                 "whiteList=" + whiteList +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof InMemoryVariantWhiteList)) return false;
+        InMemoryVariantWhiteList that = (InMemoryVariantWhiteList) o;
+        return whiteList.equals(that.whiteList);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(whiteList);
     }
 
     private static class EmptyVariantWhiteList implements VariantWhiteList {

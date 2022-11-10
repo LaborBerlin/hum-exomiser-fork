@@ -2,7 +2,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,15 +28,11 @@ import de.charite.compbio.jannovar.mendel.SubModeOfInheritance;
 import org.junit.jupiter.api.Test;
 import org.monarchinitiative.exomiser.core.analysis.util.InheritanceModeOptions;
 import org.monarchinitiative.exomiser.core.filters.*;
-import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
-import org.monarchinitiative.exomiser.core.model.Pedigree;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicitySource;
-import org.monarchinitiative.exomiser.core.prioritisers.NoneTypePrioritiser;
-import org.monarchinitiative.exomiser.core.prioritisers.Prioritiser;
+import org.monarchinitiative.exomiser.core.prioritisers.*;
+import org.monarchinitiative.exomiser.core.prioritisers.service.TestPriorityServiceFactory;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 import static org.hamcrest.CoreMatchers.*;
@@ -56,46 +52,11 @@ public class AnalysisTest {
 
     private List<AnalysisStep> getAnalysisSteps() {
         VariantFilter geneIdFilter = new GeneSymbolFilter(new HashSet<>());
-        Prioritiser noneTypePrioritiser = new NoneTypePrioritiser();
+        Prioritiser<?> noneTypePrioritiser = new NoneTypePrioritiser();
         GeneFilter inheritanceFilter = new InheritanceFilter(ModeOfInheritance.ANY);
         VariantFilter targetFilter = new PassAllVariantEffectsFilter();
 
         return Lists.newArrayList(geneIdFilter, noneTypePrioritiser, inheritanceFilter, targetFilter);
-    }
-
-    @Test
-    public void testCanSetAndGetVcfFilePath() {
-        Path vcfPath = Paths.get("vcf");
-        Analysis instance = newBuilder()
-                .vcfPath(vcfPath)
-                .build();
-        assertThat(instance.getVcfPath(), equalTo(vcfPath));
-    }
-
-    @Test
-    public void testCanSetAndGetPedigree() {
-        Pedigree pedigree = Pedigree.empty();
-        Analysis instance = newBuilder()
-                .pedigree(pedigree)
-                .build();
-        assertThat(instance.getPedigree(), equalTo(pedigree));
-    }
-
-    @Test
-    public void canSetProbandSampleName() {
-        String probandSampleName = "Slartibartfast";
-        Analysis instance = Analysis.builder()
-                .probandSampleName(probandSampleName)
-                .build();
-        assertThat(instance.getProbandSampleName(), equalTo(probandSampleName));
-    }
-
-    @Test
-    public void canSetGenomeAssembly() {
-        Analysis instance = Analysis.builder()
-                .genomeAssembly(GenomeAssembly.HG19)
-                .build();
-        assertThat(instance.getGenomeAssembly(), equalTo(GenomeAssembly.HG19));
     }
 
     @Test
@@ -201,11 +162,45 @@ public class AnalysisTest {
 
     @Test
     public void testCanAddPrioritiserAsAnAnalysisStep() {
-        Prioritiser prioritiser = new NoneTypePrioritiser();
+        Prioritiser<? extends PriorityResult> prioritiser = new NoneTypePrioritiser();
         Analysis instance = newBuilder()
                 .addStep(prioritiser)
                 .build();
         assertThat(instance.getAnalysisSteps(), hasItem(prioritiser));
+    }
+
+    @Test
+    public void testGetMainPrioritiserType() {
+        Prioritiser<? extends PriorityResult> prioritiser = new NoneTypePrioritiser();
+        Analysis instance = newBuilder()
+                .addStep(new OmimPriority(TestPriorityServiceFactory.stubPriorityService()))
+                .addStep(prioritiser)
+                .build();
+        assertThat(instance.getMainPrioritiserType(), equalTo(prioritiser.getPriorityType()));
+    }
+
+    @Test
+    public void testGetMainPrioritiserTypeNoPrioritisersSet() {
+        Analysis instance = newBuilder()
+                .build();
+        assertThat(instance.getMainPrioritiserType(), equalTo(PriorityType.NONE));
+    }
+
+    @Test
+    public void testGetMainPrioritiser() {
+        Prioritiser<? extends PriorityResult> prioritiser = new NoneTypePrioritiser();
+        Analysis instance = newBuilder()
+                .addStep(new OmimPriority(TestPriorityServiceFactory.stubPriorityService()))
+                .addStep(prioritiser)
+                .build();
+        assertThat(instance.getMainPrioritiser(), equalTo(prioritiser));
+    }
+
+    @Test
+    public void testGetMainPrioritiserNoPrioritisersSet() {
+        Analysis instance = newBuilder()
+                .build();
+        assertThat(instance.getMainPrioritiser(), equalTo(null));
     }
 
     @Test

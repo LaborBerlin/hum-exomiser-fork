@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,16 +20,38 @@
 
 package org.monarchinitiative.exomiser.autoconfigure.genome;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
+@Configuration
 @ConfigurationProperties("exomiser.hg38")
 public class Hg38GenomeProperties extends AbstractGenomeProperties {
 
     public Hg38GenomeProperties() {
         super(GenomeAssembly.HG38);
+    }
+
+    @Bean
+    @ConfigurationProperties("exomiser.hg38.genome.datasource")
+    public DataSourceProperties hg38genomeDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    @ConfigurationProperties("exomiser.hg38.genome.datasource.hikari")
+    public HikariDataSource hg38genomeDataSource(DataSourceProperties hg38genomeDataSourceProperties) {
+        return hg38genomeDataSourceProperties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
+    }
+
+    @Override
+    public HikariDataSource genomeDataSource() {
+        return hg38genomeDataSource(hg38genomeDataSourceProperties());
     }
 }

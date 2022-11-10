@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -37,8 +37,10 @@ import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -58,6 +60,17 @@ public class ResultsWriterUtils {
         //Empty - this is a static class.
     }
 
+    public static Path resolveOutputDir(String outputPrefix) {
+        if (outputPrefix.isEmpty()) {
+            return Path.of(DEFAULT_OUTPUT_DIR);
+        }
+        Path outputPrefixPath = Path.of(outputPrefix);
+        if (Files.isDirectory(outputPrefixPath)) {
+            return outputPrefixPath;
+        }
+        return Objects.requireNonNullElse(outputPrefixPath.getParent(), Path.of(""));
+    }
+
     /**
      * Determines the correct file extension for a file given that was specified by the user, or a sensible default if not.
      *
@@ -69,12 +82,14 @@ public class ResultsWriterUtils {
      */
     public static String makeOutputFilename(Path vcfPath, String outputPrefix, OutputFormat outputFormat, ModeOfInheritance modeOfInheritance) {
         String moiAbbreviation = moiAbbreviation(modeOfInheritance);
-        if (outputPrefix.isEmpty()) {
-            String defaultOutputPrefix = String.format("%s/%s_exomiser", ResultsWriterUtils.DEFAULT_OUTPUT_DIR, vcfPath.getFileName());
-            logger.debug("Output prefix was unspecified. Will write out to: {}", defaultOutputPrefix);
-            return String.format("%s%s.%s", defaultOutputPrefix, moiAbbreviation, outputFormat.getFileExtension());
+        String baseFileName = Path.of(outputPrefix).getFileName().toString();
+        if (baseFileName.isEmpty() && vcfPath == null) {
+            baseFileName = "exomiser";
+        } else if (baseFileName.isEmpty()) {
+            String vcfFileName = vcfPath.getFileName().toString().replace(".vcf", "").replace(".gz", "");
+            baseFileName = vcfFileName + "-exomiser";
         }
-        return String.format("%s%s.%s", outputPrefix, moiAbbreviation, outputFormat.getFileExtension());
+        return resolveOutputDir(outputPrefix).normalize().resolve(baseFileName + moiAbbreviation + '.' + outputFormat.getFileExtension()).toString();
     }
 
     private static String moiAbbreviation(ModeOfInheritance modeOfInheritance) {
@@ -106,7 +121,7 @@ public class ResultsWriterUtils {
                 VariantEffect.INITIATOR_CODON_VARIANT, VariantEffect.SYNONYMOUS_VARIANT,
                 VariantEffect.FIVE_PRIME_UTR_TRUNCATION,
                 VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT,
-                VariantEffect.FIVE_PRIME_UTR_INTRON_VARIANT,
+                VariantEffect.FIVE_PRIME_UTR_EXON_VARIANT,
                 VariantEffect.THREE_PRIME_UTR_TRUNCATION,
                 VariantEffect.THREE_PRIME_UTR_INTRON_VARIANT,
                 VariantEffect.THREE_PRIME_UTR_EXON_VARIANT,

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -35,21 +36,24 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
-public class ClinVarWhiteListFileAlleleIndexer extends AbstractAlleleIndexer {
+public class ClinVarWhiteListFileAlleleIndexer extends AbstractIndexer<Allele> {
 
     private static final Logger logger = LoggerFactory.getLogger(ClinVarWhiteListFileAlleleIndexer.class);
 
     private final BufferedWriter bufferedWriter;
+    private final Set<Allele> blacklist;
     private final AtomicLong count = new AtomicLong(0);
 
-    public ClinVarWhiteListFileAlleleIndexer(BufferedWriter bufferedWriter) {
+
+    public ClinVarWhiteListFileAlleleIndexer(BufferedWriter bufferedWriter, Set<Allele> blacklist) {
         this.bufferedWriter = bufferedWriter;
+        this.blacklist = blacklist;
     }
 
     @Override
-    public void writeAllele(Allele allele) {
+    public void write(Allele allele) {
         ClinVarData clinVarData = allele.getClinVarData();
-        if (isPathOrLikelyPath(clinVarData) && hasAssertionCriteria(clinVarData)) {
+        if (!clinVarData.isSecondaryAssociationRiskFactorOrOther() && isPathOrLikelyPath(clinVarData) && clinVarData.starRating() >= 1 && notOnBlackList(allele)) {
             StringJoiner stringJoiner = new StringJoiner("\t");
             stringJoiner.add(Integer.toString(allele.getChr()));
             stringJoiner.add(Integer.toString(allele.getPos()));
@@ -63,21 +67,31 @@ public class ClinVarWhiteListFileAlleleIndexer extends AbstractAlleleIndexer {
                 // when writing out to the BlockCompressedOutputStream don't use flush()
                 // this is necessary if only writing to an uncompressed test file.
             } catch (IOException ex) {
-                logger.error("Unable to write to allele index file", ex);
-                throw new RuntimeException(ex);
+                throw new IllegalStateException("Unable to write to ClinVar whitelist index file", ex);
             }
             count.incrementAndGet();
         }
     }
 
-    private boolean hasAssertionCriteria(ClinVarData clinVarData) {
-        // maps to the CLNREVSTAT subfield in the VCF INFO. Many alleles with 'no_assertion_criteria_provided'
-        // or 'no_assertion_provided' have incredibly high MAF, some even as high as 98% in some populations.
-        return !clinVarData.getReviewStatus().startsWith("no_assertion");
+    private boolean notOnBlackList(Allele allele) {
+        return !blacklist.contains(allele);
     }
 
+    //  CLNREVSTAT
+    //  Zero starts - ignore these:
+    //   no_assertion_criteria_provided,
+    //   no_assertion_provided,
+    //   no_interpretation_for_the_single_variant,
+    //  One star:
+    //   1* criteria_provided,_conflicting_interpretations,
+    //   1* criteria_provided,_single_submitter,
+    //  Keep These:
+    //   2* criteria_provided,_multiple_submitters,_no_conflicts,
+    //   3* reviewed_by_expert_panel
+    //   4* practice_guideline,
+
     private boolean isPathOrLikelyPath(ClinVarData clinVarData) {
-        switch(clinVarData.getPrimaryInterpretation()) {
+        switch (clinVarData.getPrimaryInterpretation()) {
             case PATHOGENIC:
             case PATHOGENIC_OR_LIKELY_PATHOGENIC:
             case LIKELY_PATHOGENIC:
@@ -91,7 +105,8 @@ public class ClinVarWhiteListFileAlleleIndexer extends AbstractAlleleIndexer {
         StringJoiner stringJoiner = new StringJoiner(";");
         stringJoiner.add("ALLELEID=" + clinVarData.getAlleleId());
         stringJoiner.add("CLNSIG=" + clinVarData.getPrimaryInterpretation());
-        stringJoiner.add("CLNREVSTAT=" + clinVarData.getReviewStatus());
+        stringJoiner.add("CLNREVSTAT=" + clinVarData.getReviewStatus().replace(" ", "_"));
+        stringJoiner.add("STARS=" + clinVarData.starRating());
         return stringJoiner;
     }
 
@@ -105,8 +120,7 @@ public class ClinVarWhiteListFileAlleleIndexer extends AbstractAlleleIndexer {
         try {
             bufferedWriter.close();
         } catch (IOException e) {
-            logger.error("Unable to close allele index file", e);
-            throw new RuntimeException(e);
+            throw new IllegalStateException("Unable to close ClinVar whitelist index file", e);
         }
     }
 }

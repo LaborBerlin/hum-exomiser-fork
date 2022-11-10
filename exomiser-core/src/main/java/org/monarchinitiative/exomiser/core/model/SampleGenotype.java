@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,12 +21,12 @@
 package org.monarchinitiative.exomiser.core.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 /**
  * Immutable class representing the genotype of a sample, expressed as a phased or un-phased set of {@link AlleleCall}.
@@ -35,6 +35,8 @@ import java.util.StringJoiner;
  * @since 10.0.0
  */
 public class SampleGenotype {
+
+    private static final Pattern GT = Pattern.compile("([0-9.-][/|]?)*+");
 
     private static final SampleGenotype EMPTY = new SampleGenotype(false);
     //cached common diploid genotypes - these are going to be super-common in multi-sample cases
@@ -141,8 +143,49 @@ public class SampleGenotype {
         this.phased = phased;
     }
 
+    /**
+     * Parse a VCF-style genotype string into a {@link SampleGenotype} - e.g. 0/1 or 1/1
+     * This method will handle no calls (.) phasing (/ or |) and polyploid genotypes.
+     *
+     * @param genotype The genotype in VCF format.
+     * @return a SampleGenotype parsed from the input string or an empty instance if unrecognised.
+     * @since 13.0.0
+     */
+    public static SampleGenotype parseGenotype(String genotype) {
+        if (genotype == null || genotype.isEmpty() || genotype.equals(".") || genotype.equals("NA")) {
+            return SampleGenotype.empty();
+        }
+        if (GT.matcher(genotype).matches()) {
+            boolean phased = genotype.contains("|");
+            AlleleCall[] alleleCalls = parseAlleleCalls(phased, genotype);
+            return phased ? SampleGenotype.phased(alleleCalls) : SampleGenotype.of(alleleCalls);
+        }
+        return SampleGenotype.empty();
+    }
+
+    private static AlleleCall[] parseAlleleCalls(boolean phased, String genotype) {
+        String[] calls = phased ? genotype.split("\\|") : genotype.split("/");
+        AlleleCall[] alleleCalls = new AlleleCall[calls.length];
+        for (int i = 0; i < calls.length; i++) {
+            alleleCalls[i] = AlleleCall.parseAlleleCall(calls[i]);
+        }
+        return alleleCalls;
+    }
+
     public List<AlleleCall> getCalls() {
-        return ImmutableList.copyOf(alleleCalls);
+        return List.of(alleleCalls);
+    }
+
+    /**
+     * Returns the number of calls for the {@link SampleGenotype}. For example a monoploid sample would return 1,
+     * diploid 2, triploid 3 etc.
+     *
+     * @return the number of calls for this {@link SampleGenotype}
+     * @since 13.0.0
+     */
+    @JsonIgnore
+    public int numCalls() {
+        return alleleCalls.length;
     }
 
     /**
@@ -228,6 +271,22 @@ public class SampleGenotype {
         return alleleCalls.length == 0;
     }
 
+    /**
+     * Tests whether the current {@link SampleGenotype} does NOT contain a NO_CALL.
+     *
+     * @return true if the genotype only contains NO CALLs, otherwise false
+     * @since 13.0.0
+     */
+    @JsonIgnore
+    public boolean isNoCall() {
+        for (int i = 0; i < alleleCalls.length; i++) {
+            if (alleleCalls[i] != AlleleCall.NO_CALL) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -247,7 +306,7 @@ public class SampleGenotype {
     @Override
     public String toString() {
         if (isEmpty()){
-            return "NA";
+            return ".";
         }
         StringJoiner stringJoiner;
         if (phased) {

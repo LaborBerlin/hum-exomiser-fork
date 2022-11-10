@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,13 +22,13 @@ package org.monarchinitiative.exomiser.core.filters;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.genome.TestVariantDataService;
 import org.monarchinitiative.exomiser.core.genome.VariantDataService;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -46,6 +46,7 @@ public class FrequencyDataProviderTest {
 
     private static final Set<FrequencySource> EMPTY_SET = Collections.emptySet();
     private static final VariantDataService STUB_VARIANT_DATA_SERVICE = TestVariantDataService.stub();
+    private static final String RS_ID = "rs123456";
 
     private FrequencyDataProvider instance;
 
@@ -54,7 +55,7 @@ public class FrequencyDataProviderTest {
 
     @BeforeEach
     public void setUp() {
-        variant = VariantEvaluation.builder(1, 1, "A", "T").frequencyData(defaultFrequencyData).build();
+        variant = TestFactory.variantBuilder(1, 1, "A", "T").frequencyData(defaultFrequencyData).build();
     }
         
     @Test
@@ -79,7 +80,7 @@ public class FrequencyDataProviderTest {
 
     @Test
     public void testProvidesFrequencyDataForVariantWhenRun() {
-        FrequencyData expectedData = FrequencyData.of(RsId.of(123456), Frequency.of(ESP_ALL, 1.0f));
+        FrequencyData expectedData = FrequencyData.of(RS_ID, Frequency.of(ESP_ALL, 1.0f));
         VariantDataService variantDataService = TestVariantDataService.builder().put(variant, expectedData).build();
        
         instance = new FrequencyDataProvider(variantDataService, EnumSet.allOf(FrequencySource.class), new KnownVariantFilter());
@@ -114,7 +115,7 @@ public class FrequencyDataProviderTest {
     public void testFrequencyDataOnlyContainsSpecifiedSourcesOneSourceSpecifiedAllDataSourcesInDatabase() {
 
         Frequency espAll = Frequency.of(ESP_ALL, 0.01f);
-        FrequencyData variantFrequencyData = FrequencyData.of(RsId.of(123456), espAll, Frequency.of(EXAC_AFRICAN_INC_AFRICAN_AMERICAN, 0.234f), Frequency
+        FrequencyData variantFrequencyData = FrequencyData.of(RS_ID, espAll, Frequency.of(EXAC_AFRICAN_INC_AFRICAN_AMERICAN, 0.234f), Frequency
                 .of(EXAC_FINNISH, 0.02f));
 
         VariantDataService variantDataService = TestVariantDataService.builder().put(variant, variantFrequencyData).build();
@@ -122,7 +123,7 @@ public class FrequencyDataProviderTest {
         instance = new FrequencyDataProvider(variantDataService, EnumSet.of(espAll.getSource()), new KnownVariantFilter());
         instance.runFilter(variant);
 
-        assertThat(variant.getFrequencyData(), equalTo(FrequencyData.of(RsId.of(123456), espAll)));
+        assertThat(variant.getFrequencyData(), equalTo(FrequencyData.of(RS_ID, espAll)));
     }
     
     @Test
@@ -130,14 +131,14 @@ public class FrequencyDataProviderTest {
 
         Frequency espAll = Frequency.of(ESP_ALL, 0.01f);
         Frequency exacAfr = Frequency.of(EXAC_AFRICAN_INC_AFRICAN_AMERICAN, 0.234f);
-        FrequencyData variantFrequencyData = FrequencyData.of(RsId.of(123456), espAll, exacAfr, Frequency.of(EXAC_FINNISH, 0.02f));
+        FrequencyData variantFrequencyData = FrequencyData.of(RS_ID, espAll, exacAfr, Frequency.of(EXAC_FINNISH, 0.02f));
 
         VariantDataService variantDataService = TestVariantDataService.builder().put(variant, variantFrequencyData).build();
 
         instance = new FrequencyDataProvider(variantDataService, EnumSet.of(espAll.getSource(), exacAfr.getSource()), new KnownVariantFilter());
         instance.runFilter(variant);
 
-        assertThat(variant.getFrequencyData(), equalTo(FrequencyData.of(RsId.of(123456), espAll, exacAfr)));
+        assertThat(variant.getFrequencyData(), equalTo(FrequencyData.of(RS_ID, espAll, exacAfr)));
     }
     
     @Test

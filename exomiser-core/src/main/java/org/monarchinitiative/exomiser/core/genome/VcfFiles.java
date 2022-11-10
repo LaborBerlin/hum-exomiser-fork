@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,7 +26,9 @@ import htsjdk.variant.vcf.VCFHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -69,5 +71,25 @@ public class VcfFiles {
         try (VCFFileReader vcfReader = new VCFFileReader(vcfPath, false)) {
             return vcfReader.getFileHeader();
         }
+    }
+
+    /**
+     * Reads the sample identifiers from the VCF header. This method will accept a null input and return an empty list.
+     *
+     * @param vcfPath path to the VCF file
+     * @return a list of sample identifiers in order of appearance in the genotype columns. May be empty.
+     * @since 13.0.0
+     */
+    public static List<String> readSampleIdentifiers(@Nullable Path vcfPath) {
+        if (vcfPath == null) {
+            return List.of();
+        }
+        try {
+            VCFHeader vcfHeader = readVcfHeader(vcfPath);
+            return List.copyOf(vcfHeader.getGenotypeSamples());
+        } catch (Exception ex) {
+            logger.error("Unable to read VCF sample identifiers from file {}", vcfPath);
+        }
+        return List.of();
     }
 }

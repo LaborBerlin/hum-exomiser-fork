@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,95 +21,21 @@
 package org.monarchinitiative.exomiser.core.model;
 
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
+import org.monarchinitiative.svart.CoordinateSystem;
+import org.monarchinitiative.svart.Position;
+import org.monarchinitiative.svart.Strand;
+import org.monarchinitiative.svart.Variant;
 
 /**
  * @author Jules Jacobsen <jules.jacobsen@sanger.ac.uk>
  */
-public class SimpleVariantCoordinates implements VariantCoordinates {
+public class SimpleVariantCoordinates {
 
-    private final GenomeAssembly genomeAssembly;
-    private final int chr;
-    private final int pos;
-    private final String ref;
-    private final String alt;
-
-    public SimpleVariantCoordinates(GenomeAssembly genomeAssembly, int chr, int pos, String ref, String alt) {
-        this.genomeAssembly = genomeAssembly;
-        this.chr = chr;
-        this.pos = pos;
-        this.ref = ref;
-        this.alt = alt;
+    private SimpleVariantCoordinates() {
     }
 
-    @Override
-    public GenomeAssembly getGenomeAssembly() {
-        return genomeAssembly;
+    public static Variant of(int chr, int start, String alt, String ref) {
+        return Variant.of(GenomeAssembly.HG19.getContigById(chr), "", Strand.POSITIVE, CoordinateSystem.oneBased(), Position.of(start), ref, alt);
     }
 
-    @Override
-    public int getChromosome() {
-        return chr;
-    }
-
-    @Override
-    public String getChromosomeName() {
-        switch (chr) {
-            case 23:
-                return "X";
-            case 24:
-                return "Y";
-            case 25:
-                return "M";
-            default:
-                return String.valueOf(chr);
-        }
-    }
-
-    @Override
-    public int getPosition() {
-        return pos;
-    }
-
-    @Override
-    public String getRef() {
-        return ref;
-    }
-
-    @Override
-    public String getAlt() {
-        return alt;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        SimpleVariantCoordinates that = (SimpleVariantCoordinates) o;
-
-        if (chr != that.chr) return false;
-        if (pos != that.pos) return false;
-        if (ref != null ? !ref.equals(that.ref) : that.ref != null) return false;
-        return !(alt != null ? !alt.equals(that.alt) : that.alt != null);
-
-    }
-
-    @Override
-    public int hashCode() {
-        int result = chr;
-        result = 31 * result + pos;
-        result = 31 * result + (ref != null ? ref.hashCode() : 0);
-        result = 31 * result + (alt != null ? alt.hashCode() : 0);
-        return result;
-    }
-
-    @Override
-    public String toString() {
-        return "SimpleVariantCoordinates{" +
-                "chr=" + chr +
-                ", pos=" + pos +
-                ", ref='" + ref + '\'' +
-                ", alt='" + alt + '\'' +
-                '}';
-    }
 }

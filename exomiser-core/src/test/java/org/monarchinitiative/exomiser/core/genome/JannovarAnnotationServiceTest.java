@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,10 @@ package org.monarchinitiative.exomiser.core.genome;
 
 import de.charite.compbio.jannovar.annotation.VariantAnnotations;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
+import htsjdk.variant.variantcontext.VariantContext;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.svart.Variant;
+import org.monarchinitiative.svart.util.VariantTrimmer;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -61,8 +64,6 @@ public class JannovarAnnotationServiceTest {
     @Test
     public void testGetAnnotationsForUnknownContigVariant() {
         VariantAnnotations variantAnnotations = instance.annotateVariant("UNKNOWN", 1, "A", "T");
-
-        System.out.println(variantAnnotations);
         assertThat(variantAnnotations, not(nullValue()));
         assertThat(variantAnnotations.getChr(), equalTo(0));
         assertThat(variantAnnotations.getPos(), equalTo(0)); //Jannovar uses and returns 0-based coordinates.
@@ -135,4 +136,19 @@ public class JannovarAnnotationServiceTest {
         assertThat(variantAnnotations.getAlt(), equalTo(""));
     }
 
+    @Test
+    void testBnd() {
+        VariantContextConverter variantContextConverter = VariantContextConverter.of(GenomeAssembly.HG19.genomicAssembly(), VariantTrimmer.leftShiftingTrimmer(VariantTrimmer.retainingCommonBase()));
+        VariantContext variantContext = TestVcfReader.forSamples("sample").readVariantContext("1\t243097603\tMantaBND:12652:0:1:1:1:0:0\tA\t]Y:13954151]A\t428.00\tMaxDepth\tSVTYPE=BND;MATEID=MantaBND:12652:0:1:1:1:0:1;BND_PAIR_COUNT=10;PAIR_COUNT=9;CIPOS=0,12;HOMLEN=12;HOMSEQ=ATAATAATAATA;BND_DEPTH=31;MATE_BND_DEPTH=47\tGT:GQ:PR:SR\t0/1:428:26,4:13,13");
+        Variant variant = variantContextConverter.convertToVariant(variantContext, variantContext.getAlternateAllele(0));
+        assertThat(variant, is(nullValue()));
+//        System.out.println(variant);
+//        System.out.println(variant.isSymbolic());
+//        System.out.println(variant.isBreakend());
+//        SVAnnotations variantAnnotations = instance.annotateStructuralVariant(variant.variantType(), variant.alt(), variant.contigName(), variant.startPosition(), variant.endPosition());
+//        System.out.println(variantAnnotations);
+//
+//        Variant neg = Variant.of(GenomeAssembly.HG19.getContigById(1), "", Strand.NEGATIVE, CoordinateSystem.FULLY_CLOSED, Position.of(248453442), "A", "T");
+//        System.out.println(neg.startOnStrand(Strand.POSITIVE));
+    }
 }

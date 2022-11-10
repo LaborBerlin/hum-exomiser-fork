@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,18 +20,16 @@
 
 package org.monarchinitiative.exomiser.core.analysis.util;
 
-import com.google.common.collect.ImmutableList;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
-import org.monarchinitiative.exomiser.core.model.SampleIdentifier;
+import org.monarchinitiative.exomiser.core.model.Pedigree.Individual.Sex;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.Predicate;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * Non-public helper class for finding contributing alleles.
@@ -43,12 +41,16 @@ class ContributingAlleleCalculator {
 
     private static final Logger logger = LoggerFactory.getLogger(ContributingAlleleCalculator.class);
 
-    private final SampleIdentifier probandSampleIdentifier;
+    private final String probandId;
+    private final Sex probandSex;
     private final CompHetAlleleCalculator compHetAlleleCalculator;
+    private final IncompletePenetranceAlleleCalculator incompletePenetranceAlleleCalculator;
 
-    ContributingAlleleCalculator(SampleIdentifier probandSampleIdentifier, InheritanceModeAnnotator inheritanceModeAnnotator) {
-        this.probandSampleIdentifier = probandSampleIdentifier;
+    ContributingAlleleCalculator(String probandId, Sex probandSex, InheritanceModeAnnotator inheritanceModeAnnotator) {
+        this.probandId = probandId;
+        this.probandSex = probandSex;
         this.compHetAlleleCalculator = new CompHetAlleleCalculator(inheritanceModeAnnotator);
+        this.incompletePenetranceAlleleCalculator = new IncompletePenetranceAlleleCalculator(inheritanceModeAnnotator.getPedigree());
     }
 
     /**
@@ -68,19 +70,48 @@ class ContributingAlleleCalculator {
                 //It is critical only the PASS variants are used in the scoring
                 .filter(VariantEvaluation::passedFilters)
                 .filter(variantEvaluation -> variantEvaluation.isCompatibleWith(modeOfInheritance))
-                .collect(toList());
+                .collect(toUnmodifiableList());
         //note these need to be filtered for the relevant ModeOfInheritance before being checked for the contributing variants
         if (variantsCompatibleWithMode.isEmpty()) {
-            return Collections.emptyList();
+            return variantsCompatibleWithMode;
         }
         switch (modeOfInheritance) {
             case AUTOSOMAL_RECESSIVE:
-            case X_RECESSIVE:
                 return findAutosomalRecessiveContributingVariants(modeOfInheritance, variantsCompatibleWithMode);
+            case X_RECESSIVE:
+                return findXRecessiveContributingVariants(modeOfInheritance, variantsCompatibleWithMode);
+            case ANY:
+                return findIncompletePenetranceContributingVariants(modeOfInheritance, variantsCompatibleWithMode);
             default:
                 return findNonAutosomalRecessiveContributingVariants(modeOfInheritance, variantsCompatibleWithMode);
         }
 
+    }
+
+    /**
+     * @since 13.0.0
+     */
+    private List<VariantEvaluation> findIncompletePenetranceContributingVariants(ModeOfInheritance modeOfInheritance, List<VariantEvaluation> variantEvaluations) {
+        logger.debug("Checking ANY mode for {}", variantEvaluations);
+        List<VariantEvaluation> compatibleVariants = incompletePenetranceAlleleCalculator.findCompatibleVariants(variantEvaluations);
+        return findNonAutosomalRecessiveContributingVariants(modeOfInheritance, compatibleVariants);
+    }
+
+    /**
+     * @since 13.0.0
+     */
+    private List<VariantEvaluation> findXRecessiveContributingVariants(ModeOfInheritance modeOfInheritance, List<VariantEvaluation> variantEvaluations) {
+        logger.debug("Checking XR mode for {}", variantEvaluations);
+        if (variantEvaluations.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (probandSex == Sex.FEMALE) {
+            logger.debug("Proband is female - finding AR compatible alleles");
+            return findAutosomalRecessiveContributingVariants(modeOfInheritance, variantEvaluations);
+        }
+        logger.debug("Proband is male/unknown - finding AD compatible alleles");
+        // male and unknown treat as dominant
+        return findNonAutosomalRecessiveContributingVariants(modeOfInheritance, variantEvaluations);
     }
 
     private List<VariantEvaluation> findAutosomalRecessiveContributingVariants(ModeOfInheritance modeOfInheritance, List<VariantEvaluation> variantEvaluations) {
@@ -92,10 +123,12 @@ class ContributingAlleleCalculator {
                 .stream()
                 .map(pair -> new CompHetPair(pair.get(0), pair.get(1)))
                 .max(Comparator.comparing(CompHetPair::getScore));
+        logger.debug("Best CompHet: {}", bestCompHetPair);
 
         Optional<VariantEvaluation> bestHomozygousAlt = variantEvaluations.stream()
-                .filter(variantIsHomozygousAlt(probandSampleIdentifier))
+                .filter(variantIsHomozygousAlt(probandId))
                 .max(Comparator.comparing(VariantEvaluation::getVariantScore));
+        logger.debug("Best HomAlt: {}", bestHomozygousAlt);
 
         // Realised original logic allows a comphet to be calculated between a top scoring het and second place hom which is wrong
         // Jannovar seems to currently be allowing hom_ref variants through so skip these as well
@@ -109,23 +142,25 @@ class ContributingAlleleCalculator {
 
         double bestScore = Double.max(bestHomAltScore, bestCompHetScore);
 
-        if (BigDecimal.valueOf(bestScore).equals(BigDecimal.valueOf(bestCompHetScore)) && bestCompHetPair.isPresent()) {
+        if (Double.compare(bestScore, bestCompHetScore) == 0 && bestCompHetPair.isPresent()) {
             CompHetPair compHetPair = bestCompHetPair.get();
             compHetPair.setContributesToGeneScoreUnderMode(modeOfInheritance);
-            logger.debug("Top scoring comp het: {}", compHetPair);
-
+            logger.debug("Top scoring AR is comp het: {}", compHetPair);
             return bestCompHetPair.get().getAlleles();
         } else if (bestHomozygousAlt.isPresent()) {
             VariantEvaluation topHomAlt = bestHomozygousAlt.get();
             topHomAlt.setContributesToGeneScoreUnderMode(modeOfInheritance);
-            logger.debug("Top scoring hom alt het: {}", topHomAlt);
-
-            return ImmutableList.of(topHomAlt);
+            logger.debug("Top scoring AR is hom alt: {}", topHomAlt);
+            return List.of(topHomAlt);
         }
+        logger.debug("No AR candidate alleles found");
         return Collections.emptyList();
     }
 
     private List<VariantEvaluation> findNonAutosomalRecessiveContributingVariants(ModeOfInheritance modeOfInheritance, List<VariantEvaluation> variantEvaluations) {
+        if (variantEvaluations.isEmpty()) {
+            return Collections.emptyList();
+        }
         Optional<VariantEvaluation> bestVariant = variantEvaluations.stream()
                 .max(Comparator.comparing(VariantEvaluation::getVariantScore));
 
@@ -134,8 +169,8 @@ class ContributingAlleleCalculator {
         return bestVariant.map(Collections::singletonList).orElseGet(Collections::emptyList);
     }
 
-    private Predicate<VariantEvaluation> variantIsHomozygousAlt(SampleIdentifier probandSampleIdentifier) {
-        return ve -> ve.getSampleGenotype(probandSampleIdentifier.getId()).isHomAlt();
+    private Predicate<VariantEvaluation> variantIsHomozygousAlt(String probandId) {
+        return ve -> ve.getSampleGenotype(probandId).isHomAlt();
     }
 
     /**

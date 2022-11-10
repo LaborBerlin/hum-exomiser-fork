@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,11 +20,12 @@
 
 package org.monarchinitiative.exomiser.core.genome;
 
-import com.google.common.collect.ImmutableSet;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFCodec;
 import htsjdk.variant.vcf.VCFEncoder;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,19 +37,17 @@ class VcfCodecsTest {
 
     @Test
     void getEncoder() {
-        ImmutableSet<String> sampleGenotypes = ImmutableSet.of("Arthur", "Ford");
+        List<String> sampleGenotypes = List.of("Arthur", "Ford");
 
-        VariantContext variantContext = TestVcfParser
+        VariantContext variantContext = TestVcfReader
                 .forSamples("Arthur", "Ford")
-                .toVariantContext("1 12345 . A T,C 100 PASS WIBBLE;FROOD GT 0/1 1/2");
+                .readVariantContext("1 12345 . A T,C 100 PASS WIBBLE;FROOD GT 0/1 1/2");
 
         VCFEncoder encoder = VcfCodecs.encoder(sampleGenotypes);
         String encoded = encoder.encode(variantContext);
-        System.out.println(encoded);
 
         VCFCodec decoder = VcfCodecs.decoder(sampleGenotypes);
         VariantContext decoded = decoder.decode(encoded);
-        System.out.println(decoded.toStringDecodeGenotypes());
 
         assertThat(variantContext.toStringDecodeGenotypes(), equalTo(decoded.toStringDecodeGenotypes()));
     }

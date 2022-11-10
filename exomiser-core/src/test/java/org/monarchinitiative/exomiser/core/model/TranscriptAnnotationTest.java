@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -100,21 +100,15 @@ public class TranscriptAnnotationTest {
     }
 
     @Test
-    public void testToString() {
-        System.out.println(TranscriptAnnotation.builder().build());
-
+    public void testExonRank() {
         TranscriptAnnotation annotation = TranscriptAnnotation.builder()
-                .geneSymbol("FGFR")
-                .accession("uc021pzz.1")
-                .hgvsGenomic("chr10:g.123256215T>G")
-                .hgvsCdna("c.1694A>C")
-                .hgvsProtein("p.(Glu565Ala)")
-                .distanceFromNearestGene(0)
-                .variantEffect(VariantEffect.MISSENSE_VARIANT)
+                .rankType(TranscriptAnnotation.RankType.EXON)
+                .rank(2)
+                .rankTotal(5)
                 .build();
-
-        System.out.println(annotation);
+        // i.e. Exon 2 of 5
+        assertThat(annotation.getRankType(), equalTo(TranscriptAnnotation.RankType.EXON));
+        assertThat(annotation.getRank(), equalTo(2));
+        assertThat(annotation.getRankTotal(), equalTo(5));
     }
-
-
 }

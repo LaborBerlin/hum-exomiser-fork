@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,7 @@
  */
 package org.monarchinitiative.exomiser.core.model;
 
-import org.monarchinitiative.exomiser.core.genome.Contig;
+import org.monarchinitiative.exomiser.core.genome.Contigs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,14 +66,13 @@ public class GeneticInterval implements ChromosomalRegion {
      */
     public static GeneticInterval parseString(String interval) {
 
-        String intervalPattern = "chr(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|X|Y|M):[0-9]+-[0-9]+";
+        String intervalPattern = "(chr)?(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|X|Y|M|MT):[0-9]+-[0-9]+";
         if (!Pattern.matches(intervalPattern, interval)) {
             throw new IllegalArgumentException(String.format("Genetic interval %s does not match expected pattern %s", interval, intervalPattern));
         }
 
         String[] intervalSections = interval.split(":");
-        int localChr = Contig.parseId(intervalSections[0]);
-
+        int localChr = Contigs.parseId(intervalSections[0]);
         String positions = intervalSections[1];
         String[] startEnd = positions.split("-");
 
@@ -84,17 +83,17 @@ public class GeneticInterval implements ChromosomalRegion {
     }
 
     @Override
-    public int getChromosome() {
+    public int contigId() {
         return chromosome;
     }
 
     @Override
-    public int getStart() {
+    public int start() {
         return start;
     }
 
     @Override
-    public int getEnd() {
+    public int end() {
         return end;
     }
 
@@ -127,6 +126,11 @@ public class GeneticInterval implements ChromosomalRegion {
 
     @Override
     public String toString() {
-        return String.format("chr%d:%d-%d", chromosome, start, end);
+        return String.format("chr%s:%d-%d", toChrString(chromosome), start, end);
+    }
+
+    private String toChrString(int chromosome) {
+        String chr = Contigs.toString(chromosome);
+        return "MT".equals(chr) ? "M" : chr;
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -30,8 +30,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.monarchinitiative.exomiser.core.phenotype.PhenotypeTerm;
@@ -49,6 +51,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
  *
  * @author Jules Jacobsen <jules.jacobsen@sanger.ac.uk>
  */
+@ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class OntologyServiceImplTest {
 
@@ -67,8 +70,8 @@ public class OntologyServiceImplTest {
     private final PhenotypeTerm thinEarHelix = PhenotypeTerm.of("HP:0009905", "Thin ear helix");
 
     private final Set<PhenotypeTerm> hpoTerms = ImmutableSet.of(fingerJointHyperExtensibility, conjunctivalNodule, cleftHelix, thinEarHelix);
-    private Set<PhenotypeTerm> mpoTerms = Collections.emptySet();
-    private Set<PhenotypeTerm> zpoTerms = Collections.emptySet();
+    private final Set<PhenotypeTerm> mpoTerms = Collections.emptySet();
+    private final Set<PhenotypeTerm> zpoTerms = Collections.emptySet();
 
     @BeforeEach
     public void setUp() {

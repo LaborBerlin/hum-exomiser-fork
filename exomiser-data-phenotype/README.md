@@ -3,40 +3,29 @@ The Exomiser - Phenotype DB build
 
 This maven project is used to build the Exomiser phenotype database used by the Exomiser. 
 
-Currently the build relies on a preliminary OWLSim2 file build which in future versions will
-be incorporated into this codebase:
+N.B. Now all run from apocrita (home folder on login.hpc.qmul.ac.uk) and from owltools installation at /data/WHRI-Phenogenomics/software/opt/owltools/owltools. To install from scratch use 
 
-1. OWLTools:
-    ```git clone https://github.com/owlcollab/owltools.git``` or ```git pull```
-    ```cd owltools/OWLTools-Parent
-    mvn clean install
-    cd ../../
-    chmod +x owltools/OWLTools-Runner/bin/owltools
-    ```
-    Add ```owltools/OWLTools-Oort/bin/ontology-release-runner``` and ```owltools/OWLTools-Runner/bin/owltools``` to path
-2. Clone Monarch OwlSim:
-```git clone https://github.com/monarch-initiative/monarch-owlsim-data or git pull``` 
-3. Clone the HPO:
-```git clone https://github.com/obophenotype/human-phenotype-ontology/ or git pull```
-4. Clone the MPO: 
+```git clone https://github.com/owlcollab/owltools.git
+cd owltools/OWLTools-Parent
+mvn clean install
+cd ../../
+chmod +x owltools/OWLTools-Runner/bin/owltools
 ```
-    git clone https://github.com/obophenotype/mammalian-phenotype-ontology/ or git pull
-    cd mammalian-phenotype-ontology/src/ontology
-    make mp.owl
-    cd ../../../
-   ```
-5. Clone uPheno:
-```git clone https://github.com/obophenotype/upheno```
-6. Get ZPO:
-```wget http://compbio.charite.de/jenkins/job/zp-owl/lastSuccessfulBuild/artifact/zp.owl```
-7. Replace human phenotype annotation files in Monarch git repo as these include common disease and merge together some 
+
+Add ```owltools/OWLTools-Oort/bin/ontology-release-runner``` and ```owltools/OWLTools-Runner/bin/owltools``` to path
+
+1. ```git clone https://github.com/obophenotype/upheno``` or ```git pull```
+2. ```wget http://purl.obolibrary.org/obo/mp.owl```
+3. ```wget http://purl.obolibrary.org/obo/hp.owl``` 
+4. ```wget http://purl.obolibrary.org/obo/zp.owl```
+5. Replace human phenotype annotation files in Monarch git repo as these include common disease and merge together some 
 OMIM and Orphanet entries in a way that does not represent the data in our db. Requires logic like:
 
 ```perl
-system("wget http://compbio.charite.de/jenkins/job/hpo.annotations/lastStableBuild/artifact/misc/phenotype_annotation.tab");
+system("wget http://purl.obolibrary.org/obo/hp/hpoa/phenotype_annotation.tab");
 open(IN,"phenotype_annotation.tab");
-open(OUT1,">monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt");
-open(OUT2,">monarch-owlsim-data/data/Homo_sapiens/Hs_disease_labels.txt");
+open(OUT1,">Hs_disease_phenotype.txt");
+open(OUT2,">Hs_disease_labels.txt");
 my %data;
 while (my $line = <IN>){
     my @line = split(/\t/,$line);
@@ -60,146 +49,140 @@ close OUT1;
 close OUT2;
 ```
 
-8. Run owltools commands:
+6. ```wget https://archive.monarchinitiative.org/latest/owlsim/data/Mus_musculus/Mm_gene_phenotype.txt```
+7. ```wget https://archive.monarchinitiative.org/latest/owlsim/data/Mus_musculus/Mm_gene_labels.txt```
+8. ```wget wget https://archive.monarchinitiative.org/latest/owlsim/data/Danio_rerio/Dr_gene_phenotype.txt```
+9. ```wget wget https://archive.monarchinitiative.org/latest/owlsim/data/Danio_rerio/Dr_gene_labels.txt```
+10. Run owltools commands:
+
 ```
-owltools --catalog-xml upheno/catalog-v001.xml mammalian-phenotype-ontology/scratch/mp-importer.owl mammalian-phenotype-ontology/src/ontology/mp.owl human-phenotype-ontology/hp.owl zp.owl monarch-owlsim-data/data/Mus_musculus/Mm_gene_phenotype.txt monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt monarch-owlsim-data/data/Danio_rerio/Dr_gene_phenotype.txt --merge-imports-closure --load-instances monarch-owlsim-data/data/Mus_musculus/Mm_gene_phenotype.txt --load-labels monarch-owlsim-data/data/Mus_musculus/Mm_gene_labels.txt --merge-support-ontologies -o Mus_musculus-all.owl
+owltools --catalog-xml upheno/catalog-v001.xml mp.owl hp.owl zp.owl Mm_gene_phenotype.txt Hs_disease_phenotype.txt Dr_gene_phenotype.txt --merge-imports-closure --load-instances Mm_gene_phenotype.txt --load-labels Mm_gene_labels.txt --merge-support-ontologies -o Mus_musculus-all.owl
 
-owltools --catalog-xml upheno/catalog-v001.xml human-phenotype-ontology/scratch/hp-importer.owl mammalian-phenotype-ontology/src/ontology/mp.owl human-phenotype-ontology/hp.owl zp.owl monarch-owlsim-data/data/Mus_musculus/Mm_gene_phenotype.txt monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt monarch-owlsim-data/data/Danio_rerio/Dr_gene_phenotype.txt --merge-imports-closure --load-instances monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt --load-labels monarch-owlsim-data/data/Homo_sapiens/Hs_disease_labels.txt --merge-support-ontologies -o Homo_sapiens-all.owl
+owltools --catalog-xml upheno/catalog-v001.xml mp.owl hp.owl zp.owl Mm_gene_phenotype.txt Hs_disease_phenotype.txt Dr_gene_phenotype.txt --merge-imports-closure --load-instances Hs_disease_phenotype.txt --load-labels Hs_disease_labels.txt --merge-support-ontologies -o Homo_sapiens-all.owl
 
-owltools --catalog-xml upheno/catalog-v001.xml upheno/vertebrate.owl mammalian-phenotype-ontology/src/ontology/mp.owl human-phenotype-ontology/hp.owl zp.owl monarch-owlsim-data/data/Mus_musculus/Mm_gene_phenotype.txt monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt monarch-owlsim-data/data/Danio_rerio/Dr_gene_phenotype.txt --load-instances monarch-owlsim-data/data/Danio_rerio/Dr_gene_phenotype.txt --load-labels monarch-owlsim-data/data/Danio_rerio/Dr_gene_labels.txt --load-instances monarch-owlsim-data/data/Homo_sapiens/Hs_disease_phenotype.txt --load-labels monarch-owlsim-data/data/Homo_sapiens/Hs_disease_labels.txt --merge-support-ontologies --merge-imports-closure --remove-disjoints --remove-equivalent-to-nothing-axioms --run-reasoner -r elk --assert-implied --make-super-slim HP,ZP -o hp-zp-all.owl
+owltools --catalog-xml upheno/catalog-v001.xml upheno/vertebrate.owl mp.owl hp.owl zp.owl Mm_gene_phenotype.txt Hs_disease_phenotype.txt Dr_gene_phenotype.txt --load-instances Dr_gene_phenotype.txt --load-labels Dr_gene_labels.txt --load-instances Hs_disease_phenotype.txt --load-labels Hs_disease_labels.txt --merge-support-ontologies --merge-imports-closure --remove-disjoints --remove-equivalent-to-nothing-axioms --run-reasoner -r elk --assert-implied --make-super-slim HP,ZP -o hp-zp-all.owl
 
 owltools Homo_sapiens-all.owl --merge-import-closure --remove-disjoints --remove-equivalent-to-nothing-axioms -o Homo_sapiens-all-merged.owl
+
 owltools Mus_musculus-all.owl --merge-import-closure --remove-disjoints --remove-equivalent-to-nothing-axioms -o Mus_musculus-all-merged.owl
+
 owltools hp-zp-all.owl --merge-import-closure --remove-disjoints --remove-equivalent-to-nothing-axioms -o hp-zp-all-merged.owl
-
-OWLTOOLS_MEMORY=14G owltools Homo_sapiens-all-merged.owl --sim-save-phenodigm-class-scores -m 2.5 -x HP,HP -a hp-hp-phenodigm-cache.txt
-OWLTOOLS_MEMORY=14G owltools Mus_musculus-all-merged.owl Homo_sapiens-all-merged.owl upheno/hp-mp/mp_hp-align-equiv.owl --merge-support-ontologies --sim-save-phenodigm-class-scores -m 2.5 -x HP,MP -a hp-mp-phenodigm-cache.txt
-OWLTOOLS_MEMORY=14G owltools hp-zp-all-merged.owl --sim-save-phenodigm-class-scores -m 2.5 -x HP,ZP -a hp-zp-phenodigm-cache.txt
 ```
-8. mv *-cache.txt to downloads directory of database build
 
-The application requires configuration in a couple of places depending on how it
-is to be used.
+12. Run final commands on high mem machines on apocrita (home folder on login.hpc.qmul.ac.uk)
 
-It functions by loading in the Resources from ResourceConfig and then will attempt to
-download, extract, parse and then import the parsed resources into a freshly created
-database schema called EXOMISER. 
+```
+qsub owltools_hp_hp.sh
+qsub owltools_hp_mp.sh
+qsub owltools_hp_zp.sh
 
-Flyway (http://flywaydb.org/) maven migrations for importing data into the database
-can be performed from an IDE or the command-line using the appropriate maven
-profile, for example:
+```
 
-    mvn -P migrate-H2 flyway:info
-    
-or specified from the command-line:
+13. Running the build. More detail below but essentially
 
-    java -jar exomiser-data-phenotype-${project.version}.jar --exomiser.h2.url="jdbc:h2:file:/data/exomiser-build/exomiser-data-phenotype;MODE=Postg
-    reSQL;LOG=0;CACHE_SIZE=65536;LOCK_MODE=0;UNDO_LOG=0;MV_STORE=FALSE" --data.path=/data/exomiser-build/
+```
+gzip hp-*-mapping-cache.txt
+cd /data/WHRI-Phenogenomics/projects/Damian/
+mkdir -p 2109-phenotype-build/resources
+cp ~/hp-*cache.txt.gz 2109-phenotype-build/resources
+java -Djava.io.tmpdir=/data/WHRI-Phenogenomics/projects/Damian  -jar exomiser-data-phenotype-13.0.0-SNAPSHOT.jar --phenotype.build-version=2109 --phenotype.build-dir=/data/WHRI-Phenogenomics/projects/Damian/2109-phenotype-build
+```
 
-In order for this to work the settings in the POM file may need to be changed. These
-won't work without any data to import which is what App.main is all about.   
 
-Running the application from App.main requires that the files in src/main/resources 
-are correctly configured. These files and other configurations are injected into 
-the application by the classes in the exomiser.config package:
+This application will handle the downloading and processing resources and building the H2 database.
 
-* org.monarchinitiative.exomiser.config.AppConfig
-    
-Injects the data from the app.properties 
+The application requires two commands to run `--phenotype.build-version` and `--phenotype.build-dir`
+typically the build version follows the pattern yyMM (e.g. 2108 for August 2021), the build directory *must* be a full 
+system path as otherwise the H2 database migration will fail.
 
-* org.monarchinitiative.exomiser.config.DataSourceConfig
-    
-Injects the DataSources for the database connections
-
-* org.monarchinitiative.exomiser.config.ResourceConfig
-    
-Injects the Resources - these specify where the data should be downloaded 
-from, how it should be handled in order that the parser can parse it, what parser 
-is needed to parse it, which other files should be parsed with it and what the 
-output file should be called.
-
-Commenting out a resource means it won't be processed. If the resource was part 
-of a parserGroup then that entire group will not be handled and ultimately the 
-database build will halt at the migration of the resource or group's parsedFileName.
-    
-The application can also be run from the command line. The full download, unpack, parse and load database looks like so:
+Assuming the build-dir is named `2008-phenotype-build`, the directory layout under the build-dir will be like this:
 
 ```bash
-java -jar exomiser-data-phenotype-${project.version}-SNAPSHOT.jar 
-        --data.path=/data/exomiser-build/data 
-        --downloadResources=true 
-        --extractResources=true
-        --parseResources=true 
-        --dumpPhenoDigmData=true
-        --migrateH2=true
-        --exomiser.h2.url="jdbc:h2:file:/data/exomiser-data-phenotype/exomiser;MODE=PostgreSQL;LOG=0;CACHE_SIZE=65536;LOCK_MODE=0;UNDO_LOG=0;MV_STORE=FALSE"
+2008-phenotype-build
+|__ 2008_phenotype
+|    |__ 2008_phenotype.h2.db
+|__ processed
+|__ resources
 ```
-These are overriding the properties in ```app.properties``` which default to false. The ```exomiser.h2.url``` overrides the database properties in ```jdbc.properties```.
 
-    
-In general you shouldn't need to touch anything but, in case you do the resources
-are detailed below and check the log output:
+**IMPORTANT** before the ontology group can run the phenodigm cache files e.g. `hp-hp-mapping-cache.txt.gz` produced in 
+the previous steps need to be moved into the `resources` subfolder, so that needs creating first.
 
-## src/main/resources
+Example command:
+```shell script
+mkdir -p /data/2008-phenotype-build/resources
+cp hp-*-mapping-cache.txt.gz /data/2008-phenotype-build/resources/.
+java -jar exomiser-data-phenotype-{$project.version}.jar --phenotype.build-version=2008 --phenotype.build-dir=/data/2008-phenotype-build
+``` 
 
-### app.properties
+The application will then collect the resources defined in the `application.properties` and inject them into the classes 
+required to orchestrate reading and processing of them into `.pg` files, which are then read into the database.
+ 
+### Toggling steps
+The application has three main steps, these are `download-resources`, `process-resources` and `migrate-database`. By 
+default, they will all run, in that order. They can be individually toggled by changing the fields in the `application.properties` 
+file:
+ 
+ ```properties
+phenotype.download-resources=true
+phenotype.process-resources=true
+phenotype.migrate-database=true
+```
+ 
+or overridden on the command line like so:
+ 
+ ```shell script
+java -jar exomiser-data-phenotype-{$project.version}.jar --phenotype.build-version=2008 --phenotype.build-dir=/data/2008-phenotype-build --phenotype.download-resources=false
+```
+ 
+### Download resources
+The `download-resources` step will, as the name suggests, download the resources listed in the `application.properties` 
+and places the files in the `resources` directory. 
 
-This will provide the application with the location of where you want it to
-run, download, unpack and process the resources. The resources are described in
-the exomiser.config.ResourceConfig class.  
-    
-### jdbc.properties
-    
-Contains the database connection settings for jdbc used by Flyway when called
-from App.main.
+The `phenotype.resource` is the namespace for all resources and may either have a remote, remote and local or only
+ local form as shown here:
 
-## src/main/resources/data
+```properties
+# HGNC - Remote file only example
+phenotype.resource.hgnc-complete-set.url=ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/
+phenotype.resource.hgnc-complete-set.remote-file=hgnc_complete_set.txt
 
-This is where some static data required by some parsers but which requires 
-manual processing to produce is stored. The resources are referred to in the 
-exomiser.config.ResourceConfig class but are moved into the process directory by 
-spring.
+# Ensembl gene orthologs - Remote and local form. Here tha data is copied from the remote file to a local file named 'human_mouse_ensembl_orthologs.txt' 
+phenotype.resource.ensembl-mouse-human-orthologs.url=http://www.ensembl.org/biomart/martservice?query=%3C?xml%20version=%221.0%22%20encoding=%22UTF-8%22?%3E%20%3C!DOCTYPE%20Query%3E%20%3CQuery%20%20virtualSchemaName%20=%20%22default%22%20formatter%20=%20%22TSV%22%20header%20=%20%220%22%20uniqueRows%20=%20%220%22%20count%20=%20%22%22%20datasetConfigVersion%20=%20%220.6%22%20%3E%20%20%3CDataset%20name%20=%20%22hsapiens_gene_ensembl%22%20interface%20=%20%22default%22%20%3E%20%3CAttribute%20name%20=%20%22entrezgene_id%22%20/%3E%20%3CAttribute%20name%20=%20%22hgnc_symbol%22%20/%3E%20%3C/Dataset%3E%20%3CDataset%20name%20=%20%22mmusculus_gene_ensembl%22%20interface%20=%20%22default%22%20%3E%20%3CAttribute%20name%20=%20%22mgi_id%22%20/%3E%20%3CAttribute%20name%20=%20%22mgi_symbol%22%20/%3E%20%3C/Dataset%3E%20%3C/
+phenotype.resource.ensembl-mouse-human-orthologs.remote-file=Query%3E
+phenotype.resource.ensembl-mouse-human-orthologs.local-file=human_mouse_ensembl_orthologs.txt
 
-### pheno2gene.txt
+# HP-HP mappings - Local file only example.
+phenotype.resource.hp-hp-mappings.local-file=hp-hp-phenodigm-cache.txt.gz
+```  
 
-This requires extensive messing about with a one-off dump-file from OMIM, a 
-perl parser, data from Entrez Gene and some java parsing. Given this was a one-off
-it seemed best to just include the final processed file which can be updated 
-whenever appropriate. 
+Resources will check the correct properties have been supplied or throw an error. The application will also know how to 
+handle reading from `.gz` or `.zip` files at runtime, so if the value `hp-hp-phenodigm-cache.txt.gz` in the above example
+is not a gzip file changing it to `hp-hp-phenodigm-cache.txt` in the properties will change the reader used to process 
+the file.
 
-### ucsc_hg19.ser
-
-Requires the following UCSC known genes files - these are defined and downloaded as resources
-so they will be found, ready to use in data/extracted:
-
-        http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/knownGene.txt.gz
-        http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/kgXref.txt.gz
-        http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/knownGeneMrna.txt.gz
-        http://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/knownToLocusLink.txt.gz
-
-then convert to ucsc.ser with jannovar:
-
-    ant annotator
-
-    java -Xmx2G -jar Annotator.jar -U knownGene.txt -M knownGeneMrna.txt -X kgXref.txt -L knownToLocusLink.txt -S ucsc.ser
-or...
-    java -Xms1G -Xmx2G -jar Jannovar.jar --create-ucsc
-
-
-## src/main/resources/db/migration
-
-Contains the database schema and the import sql files for the H2 database. The
-PostgreSQL migrations are run by Flyway as java migrations. Consequently they are
-found in src/main/java/db/migration/postgres.
-
+### Process resources
+The `process-resources` step will take a logical group of resources, for example all files required to produce a table 
+or group of related tables in the database. It will read them from the `resources` directory, process them and output 
+zero to many `.pg` files which are pipe-delimited files for bulk import into the database. The `process-resources` stage 
+may also perform other steps within a group in order to produce the final release, such as copying the `hpo.obo` file 
+into the final `{$build-version}_phenotype` directory.
+ 
+### Migrate database
+The `migrate-database` stage reads the `.pg` files from `processed` into the release directory. This is orchestrated 
+using Flyway migration scripts in `classpath:db/migration` and the `spring.flyway` namespace keys in the `application.properties` 
+file. The datasource for the database is configured using the `spring.datasource.hikari` properties. In general, these 
+should not need to be changed.
 
 ## Adding a Resource
 
-* Add a new Bean to org.monarchinitiative.exomiser.config.ResourceConfig and ensure 
-this is loaded in the ResourceConfig.resources() method.
+* Add a new `org.monarchinitiative.exomiser.data.phenotype.config.ResourceProperties` to `org.monarchinitiative.exomiser.data.phenotype.config.ResourceConfigurationProperties` as a `@NestedConfigurationProperty` 
+with the default values.
 
-* Add a new Parser and or ParserGroup if there are several parsers which need to 
-exchange data.
+* Add a new `ResourceReader` and add this to the relevant `ProcessingStep`/`ProcessingGroup`. Implement the `OutputLine` interface 
+to collect the data in to be written out to a `.pg` file with the `OutFileWriter`.
 
-* Add a new migration for the data which needs loading. These need to be 
-duplicated - one for the H2 database, the other for PostgreSQL.
+* Wire the resource, reader, writer etc. from the previous step together in a `@Configuration` file. New `ProcessingGroup`
+ classes will need to be added to the constructor in `org.monarchinitiative.exomiser.data.phenotype.Main`.
+
+* Add a new migration for the `.pg` file which needs loading.

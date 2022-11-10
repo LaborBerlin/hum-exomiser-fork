@@ -1,13 +1,54 @@
 # The Exomiser Command Line Executable - Changelog
 
+## 13.1.0 2022-07-29
+
+- Added new automated ACMG annotations for top-scoring variants in known disease-causing genes.
+- Added new combined score p-value
+- Added new TSV_GENE, TSV_VARIANT and VCF output files containing ranked genes/variants for all the assessed modes of
+  inheritance. Note that __these new file formats will supersede the existing individual MOI-specific TSV/VCF files which
+  will be removed in the next major release__. See the [online documentation](https://exomiser.readthedocs.io/en/latest/result_interpretation.html) for details.
+- New update online documentation! See https://exomiser.readthedocs.io/en/latest/
+- New Docker hub images for CLI and web on https://hub.docker.com/u/exomiser  
+- Added checks to ensure user specifies genome assembly if user specifies vcf path outside of phenopacket/analysis
+- Added `--output-prefix` option to enable output prefix directly on the command line
+- Updated examples to use the latest recommended settings as per preset derived from 100,000 genomes project
+
+## 13.0.1 2021-11-23
+
+- Bug fix for issue where application fails to start when only specifying hg38 data in `application.properties`
+
+## 13.0.0 2021-09-21
+
+- Minimum Java version is now set to __Java 11__
+- New structural variant interpretation alongside small variants - requires data version __2109__ or higher. This has
+  been tested using Manta and Canvas short-read callers and Sniffles long-read caller.
+- New command line options for more flexible input: --sample --output, --vcf, --batch, --preset --assembly --ped . Run
+  --help for details
+- Phenopackets v1.0 can be used to input sample phenotype data
+- Added ability to specify proband age and sex in input options either via a phenopacket or the 'sample' format
+- Improved MOI disease - phenotype matching with added Orphanet MOIs
+- Improved incomplete penetrance calculation when using the ANY mode of inheritance option
+- Added a `minExomiserGeneScore` option for limiting the output genes to have a mimimum Exomiser combined score. This is
+  disabled by default. If enabling it, we recommend using a minimum score of 0.7
+- __BREAKING CHANGE__ - JSON output changes `pos` renamed as `start`, `chrmosomeName` renamed as `contigName`.
+  Deleted `chromosome` field (use `contigName`). New fields: `end`, `length`, `changeLength` and `variantType`
+
 ## 12.1.0 2019-09-25
+
 - The JSON output now shows the id of the variantEvaluation taken from the VCF file.
 
 ## 12.0.0 2019-02-28
-This release contains significant diagnostic performance improvements due to the inclusion of a high-quality ClinVar whitelist and 'second generation' pathogenicity scores.
 
-- Added new ```PathogenicitySource``` sources - ```M_CAP, MPC, MVP, PRIMATE_AI```. Be aware that these may not be free for commercial use. _Check the licencing before use!_
-- Added new variant whitelist feature which enables flagging of variants on a whitelist and bypassing of ```FrequencyFilter``` and ```VariantEffectFilter```. By default this will use ClinVar variants listed as ```Pathogenic``` or ```Likely_pathogenic``` and with a review status of ```criteria provided, single submitter``` or better. See https://www.ncbi.nlm.nih.gov/clinvar/docs/review_status/ for an explanation of the ClinVar review status. 
+This release contains significant diagnostic performance improvements due to the inclusion of a high-quality ClinVar
+whitelist and 'second generation' pathogenicity scores.
+
+- Added new ```PathogenicitySource``` sources - ```M_CAP, MPC, MVP, PRIMATE_AI```. Be aware that these may not be free
+  for commercial use. _Check the licencing before use!_
+- Added new variant whitelist feature which enables flagging of variants on a whitelist and bypassing
+  of ```FrequencyFilter``` and ```VariantEffectFilter```. By default this will use ClinVar variants listed
+  as ```Pathogenic``` or ```Likely_pathogenic``` and with a review status of ```criteria provided, single submitter```
+  or better. See https://www.ncbi.nlm.nih.gov/clinvar/docs/review_status/ for an explanation of the ClinVar review
+  status.
 
 ## 11.0.0 2018-09-21
 - Removed ```analysisMode: SPARSE``` option - this will default to ```PASS_ONLY```

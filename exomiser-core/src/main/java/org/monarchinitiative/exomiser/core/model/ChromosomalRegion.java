@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,31 +20,38 @@
 
 package org.monarchinitiative.exomiser.core.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
+ * Interface to represent a simple region on a chromosome. For a representation of variation over a region use the
+ * {@link Variant} for biological annotations of variation over a region.
+ *
+// * @deprecated Clients should implement {@link org.monarchinitiative.svart.GenomicRegion} or extend {@link org.monarchinitiative.svart.BaseGenomicRegion}
  * @author Jules Jacobsen <jules.jacobsen@sanger.ac.uk>
  */
-public interface ChromosomalRegion extends Comparable<ChromosomalRegion> {
+//@Deprecated(forRemoval = true)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
+public interface ChromosomalRegion {
 
-    int getChromosome();
+    public int contigId();
 
-    int getStart();
+    public int start();
 
-    int getEnd();
+    public int end();
 
-    @Override
-    default int compareTo(ChromosomalRegion other) {
-        int chr = this.getChromosome();
-        int otherChr = other.getChromosome();
+    public static int compare(ChromosomalRegion c1, ChromosomalRegion c2) {
+        int chr = c1.contigId();
+        int otherChr = c2.contigId();
         if (chr != otherChr) {
             return Integer.compare(chr, otherChr);
         }
 
-        int start = this.getStart();
-        int otherStart = other.getStart();
+        int start = c1.start();
+        int otherStart = c2.start();
         if (start != otherStart) {
             return Integer.compare(start, otherStart);
         }
 
-        return Integer.compare(this.getEnd(), other.getEnd());
+        return Integer.compare(c1.end(), c2.end());
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,10 +22,7 @@ package org.monarchinitiative.exomiser.core.analysis.util;
 
 import com.google.common.collect.ImmutableList;
 import de.charite.compbio.jannovar.mendel.*;
-import org.monarchinitiative.exomiser.core.model.AlleleCall;
-import org.monarchinitiative.exomiser.core.model.Pedigree;
-import org.monarchinitiative.exomiser.core.model.SampleGenotype;
-import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
+import org.monarchinitiative.exomiser.core.model.*;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -149,9 +146,14 @@ public class InheritanceModeAnnotator {
         List<VariantEvaluation> compatibleVariants = new ArrayList<>();
         for (GenotypeCalls callResults : genotypeCalls) {
             VariantEvaluation variantEvaluation = (VariantEvaluation) callResults.getPayload();
+            // Issue #361 Add logic here to ignore a given list of frequency sources when checking against the maxFreqForMode e.g. LOCAL
+            // float maxFreq = frequencyData.maxFreqIgnoring(Set.of(LOCAL, ESP))
+            // float maxFreq = frequencyData.maxFreqFrom(Set.of(LOCAL, ESP))
             FrequencyData frequencyData = variantEvaluation.getFrequencyData();
             if (frequencyData.getMaxFreq() <= maxFreqForMode || variantEvaluation.isWhiteListed()) {
                 compatibleVariants.add(variantEvaluation);
+            } else {
+                logger.debug("FAIL variant freq {} >= {} (maxFreq for MOI) {}", frequencyData.getMaxFreq(), maxFreqForMode, variantEvaluation);
             }
         }
         return compatibleVariants;
@@ -161,46 +163,50 @@ public class InheritanceModeAnnotator {
         ArrayList<GenotypeCalls> result = new ArrayList<>();
 
         for (VariantEvaluation variantEvaluation : variantEvaluations) {
-            GenotypeCallsBuilder builder = new GenotypeCallsBuilder();
+            GenotypeCallsBuilder genotypeCallsBuilder = new GenotypeCallsBuilder();
 
-            builder.setPayload(variantEvaluation);
+            genotypeCallsBuilder.setPayload(variantEvaluation);
 
-            ChromosomeType chromosomeType = toChromosomeType(variantEvaluation.getChromosome());
-            builder.setChromType(chromosomeType);
+            ChromosomeType chromosomeType = toChromosomeType(variantEvaluation.contigId());
+            genotypeCallsBuilder.setChromType(chromosomeType);
 
             //This could be moved into the VariantFactory and a getSampleGenotypes() method added to the VariantEvaluation
             //then we can mostly discard the VariantContext, apart from writing out again...
-            Map<String, SampleGenotype> sampleGenotypes = variantEvaluation.getSampleGenotypes();
-            logger.debug("Converting {} {} {}", variantEvaluation.getRef(), variantEvaluation.getAlt(), sampleGenotypes);
-            for (Map.Entry<String, SampleGenotype> entry : sampleGenotypes.entrySet()) {
-                String sampleName = entry.getKey();
-                SampleGenotype sampleGenotype = entry.getValue();
-
-                GenotypeBuilder gtBuilder = new GenotypeBuilder();
-                for (AlleleCall alleleCall : sampleGenotype.getCalls()) {
-                    switch (alleleCall) {
-                        case REF:
-                            gtBuilder.getAlleleNumbers().add(Genotype.REF_CALL);
-                            break;
-                        case ALT:
-                            gtBuilder.getAlleleNumbers().add(1);
-                            break;
-                        case OTHER_ALT:
-                            gtBuilder.getAlleleNumbers().add(2);
-                            break;
-                        case NO_CALL:
-                        default:
-                            gtBuilder.getAlleleNumbers().add(Genotype.NO_CALL);
-                    }
-                }
-                Genotype genotype = gtBuilder.build();
+            SampleGenotypes sampleGenotypes = variantEvaluation.getSampleGenotypes();
+            logger.debug("Converting {} {} {}", variantEvaluation.ref(), variantEvaluation.alt(), sampleGenotypes);
+            for (SampleData sampleData : sampleGenotypes) {
+                String sampleName = sampleData.getId();
+                SampleGenotype sampleGenotype = sampleData.getSampleGenotype();
+                Genotype genotype = toGenotype(sampleGenotype);
                 logger.debug("Converted {} {} to {}", sampleName, sampleGenotype, genotype);
-                builder.getSampleToGenotype().put(sampleName, genotype);
+                genotypeCallsBuilder.getSampleToGenotype().put(sampleName, genotype);
             }
-            result.add(builder.build());
+            result.add(genotypeCallsBuilder.build());
         }
 
         return result;
+    }
+
+    private Genotype toGenotype(SampleGenotype sampleGenotype) {
+        List<Integer> calls = new ArrayList<>(sampleGenotype.numCalls());
+        for (AlleleCall alleleCall : sampleGenotype.getCalls()) {
+            calls.add(toCall(alleleCall));
+        }
+        return new Genotype(calls);
+    }
+
+    private int toCall(AlleleCall alleleCall) {
+        switch (alleleCall) {
+            case REF:
+                return Genotype.REF_CALL;
+            case ALT:
+                return 1;
+            case OTHER_ALT:
+                return 2;
+            case NO_CALL:
+            default:
+                return Genotype.NO_CALL;
+        }
     }
 
     private ChromosomeType toChromosomeType(int chromosome) {

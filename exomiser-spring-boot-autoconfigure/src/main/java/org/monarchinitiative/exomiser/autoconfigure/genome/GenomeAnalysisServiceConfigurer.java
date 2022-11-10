@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,13 +23,14 @@ package org.monarchinitiative.exomiser.autoconfigure.genome;
 import de.charite.compbio.jannovar.data.JannovarData;
 import org.h2.mvstore.MVStore;
 import org.monarchinitiative.exomiser.core.genome.*;
-import org.monarchinitiative.exomiser.core.genome.dao.*;
+import org.monarchinitiative.exomiser.core.genome.dao.AllelePropertiesDaoAdapter;
+import org.monarchinitiative.exomiser.core.genome.dao.RegulatoryFeatureDao;
+import org.monarchinitiative.exomiser.core.genome.dao.TadDao;
 import org.monarchinitiative.exomiser.core.model.ChromosomalRegionIndex;
 import org.monarchinitiative.exomiser.core.model.RegulatoryFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
 import java.nio.file.Path;
 
@@ -45,57 +46,30 @@ public abstract class GenomeAnalysisServiceConfigurer implements GenomeAnalysisS
 
     private static final Logger logger = LoggerFactory.getLogger(GenomeAnalysisServiceConfigurer.class);
 
-    private final GenomeProperties genomeProperties;
+    protected final GenomeProperties genomeProperties;
+    protected final GenomeDataSourceLoader genomeDataSourceLoader;
 
-    protected final DataSource dataSource;
+    protected final DataSource genomeDataSource;
+
     protected final JannovarData jannovarData;
     protected final MVStore mvStore;
 
-    protected final VariantWhiteList variantWhiteList;
-
-    //Optional user-provided TabixDataSources
-    protected final TabixDataSource localFrequencyTabixDataSource;
-    protected final TabixDataSource caddSnvTabixDataSource;
-    protected final TabixDataSource caddIndelTabixDataSource;
-    protected final TabixDataSource remmTabixDataSource;
-
-    //Super-optional TabixDataSource for testing new PathogenicityScores
-    protected final TabixDataSource testPathogenicitySource;
-
-    public GenomeAnalysisServiceConfigurer(GenomeProperties genomeProperties, Path exomiserDataDirectory) {
+    protected GenomeAnalysisServiceConfigurer(GenomeProperties genomeProperties, Path exomiserDataDirectory) {
         this.genomeProperties = genomeProperties;
-        logger.debug("Loading data sources for {} {} {}", genomeProperties.getDataVersion(), genomeProperties.getAssembly(), genomeProperties.getTranscriptSource());
-        GenomeDataSources genomeDataSources = GenomeDataSources.from(genomeProperties, exomiserDataDirectory);
-        GenomeDataSourceLoader genomeDataSourceLoader = GenomeDataSourceLoader.load(genomeDataSources);
-        this.dataSource = genomeDataSourceLoader.getGenomeDataSource();
+        logger.debug("Loading data sources for {} {} {}", genomeProperties.getDataVersion(), genomeProperties.getAssembly(), genomeProperties
+                .getTranscriptSource());
+        GenomeDataResolver genomeDataResolver = new GenomeDataResolver(genomeProperties, exomiserDataDirectory);
+        this.genomeDataSourceLoader = new GenomeDataSourceLoader(genomeProperties, genomeDataResolver);
+
+        this.genomeDataSource = genomeProperties.genomeDataSource();
+
         this.jannovarData = genomeDataSourceLoader.getJannovarData();
         this.mvStore = genomeDataSourceLoader.getMvStore();
-
-        this.variantWhiteList = genomeDataSourceLoader.getVariantWhiteList();
-
-        this.localFrequencyTabixDataSource = genomeDataSourceLoader.getLocalFrequencyTabixDataSource();
-        this.caddSnvTabixDataSource = genomeDataSourceLoader.getCaddSnvTabixDataSource();
-        this.caddIndelTabixDataSource = genomeDataSourceLoader.getCaddIndelTabixDataSource();
-        this.remmTabixDataSource = genomeDataSourceLoader.getRemmTabixDataSource();
-        this.testPathogenicitySource = genomeDataSourceLoader.getTestPathogenicityTabixDataSource();
-    }
-
-    /**
-     * Only one instance of an MVStore can access the store on disk at a time in a single JVM. This prevents tests failing
-     * when the store hasn't been properly closed.
-     */
-    @PreDestroy
-    public void closeMvStore() {
-        mvStore.close();
     }
 
     protected VariantAnnotator buildVariantAnnotator() {
         ChromosomalRegionIndex<RegulatoryFeature> regulatoryRegionIndex = genomeDataService().getRegulatoryRegionIndex();
         return new JannovarVariantAnnotator(genomeProperties.getAssembly(), jannovarData, regulatoryRegionIndex);
-    }
-
-    protected VariantFactory buildVariantFactory() {
-        return new VariantFactoryImpl(variantAnnotator());
     }
 
     //This method is calling the public interface of the concrete implementation so that the caching works on the DAOs
@@ -108,21 +82,23 @@ public abstract class GenomeAnalysisServiceConfigurer implements GenomeAnalysisS
                 .remmDao(remmDao())
                 .caddDao(caddDao())
                 .testPathScoreDao(testPathScoreDao())
-                .variantWhiteList(variantWhiteList)
+                .svFrequencyDao(svFrequencyDao())
+                .svPathogenicityDao(svPathogenicityDao())
+                .variantWhiteList(variantWhiteList())
                 .build();
     }
 
     protected GenomeDataService buildGenomeDataService() {
-        RegulatoryFeatureDao regulatoryFeatureDao = new RegulatoryFeatureDao(dataSource);
-        TadDao tadDao = new TadDao(dataSource);
+        RegulatoryFeatureDao regulatoryFeatureDao = new RegulatoryFeatureDao(genomeDataSource);
+        TadDao tadDao = new TadDao(genomeDataSource);
         GeneFactory geneFactory = new GeneFactory(jannovarData);
         return new GenomeDataServiceImpl(geneFactory, regulatoryFeatureDao, tadDao);
     }
 
     // The protected methods here are exposed so that the concrete sub-classes can call these as a bean method in order that
     // Spring can intercept any caching annotations, but otherwise keep the duplicated GenomeAnalysisServices separate from
-    // any autowiring and autoconfiguration which will cause name clashes.
+    // any auto-wiring and auto-configuration which will cause name clashes.
     protected GenomeAnalysisService buildGenomeAnalysisService() {
-        return new GenomeAnalysisServiceImpl(genomeProperties.getAssembly(), genomeDataService(), variantDataService(), variantFactory());
+        return new GenomeAnalysisServiceImpl(genomeProperties.getAssembly(), genomeDataService(), variantDataService(), variantAnnotator());
     }
 }

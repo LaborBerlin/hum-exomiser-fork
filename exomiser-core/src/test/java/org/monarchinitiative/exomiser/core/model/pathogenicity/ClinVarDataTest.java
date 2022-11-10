@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,8 +29,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 
@@ -68,7 +67,7 @@ public class ClinVarDataTest {
         assertThat(instance.getAlleleId(), equalTo(alleleId));
         assertThat(instance.getPrimaryInterpretation(), equalTo(clinSig));
         assertThat(instance.getSecondaryInterpretations(), equalTo(secondaryInterpretations));
-        assertThat(instance.getReviewStatus(), equalTo(reviewStatus));
+        assertThat(instance.getReviewStatus(), equalTo("multiple submitters, no conflict"));
         assertThat(instance.getIncludedAlleles(), equalTo(included));
     }
 
@@ -87,5 +86,41 @@ public class ClinVarDataTest {
                 .includedAlleles(included)
                 .build();
         assertThat(instance.toString(), containsString("PATHOGENIC"));
+    }
+
+    @Test
+    void testStarRating() {
+        assertThat(starRating(""), equalTo(0));
+        assertThat(starRating("other"), equalTo(0));
+        assertThat(starRating("criteria_provided,_single_submitter"), equalTo(1));
+        assertThat(starRating("criteria_provided,_conflicting_interpretations"), equalTo(1));
+        assertThat(starRating("criteria_provided,_multiple_submitters,_no_conflicts"), equalTo(2));
+        assertThat(starRating("reviewed_by_expert_panel"), equalTo(3));
+        assertThat(starRating("practice_guideline"), equalTo(4));
+    }
+
+    private int starRating(String clinRevStat) {
+        return ClinVarData.builder()
+                .reviewStatus(clinRevStat)
+                .build()
+                .starRating();
+    }
+
+    @Test
+    void testIsSecondaryAssociationRiskFactorOrOther() {
+        assertThat(isSecondaryAssociationRiskFactorOrOther(), is(false));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.DRUG_RESPONSE), is(false));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.OTHER), is(true));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.ASSOCIATION), is(true));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.RISK_FACTOR), is(true));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.PROTECTIVE), is(true));
+        assertThat(isSecondaryAssociationRiskFactorOrOther(ClinSig.AFFECTS), is(true));
+    }
+
+    private boolean isSecondaryAssociationRiskFactorOrOther(ClinSig... secondaryInterpretations) {
+        return ClinVarData.builder()
+                .secondaryInterpretations(Set.of(secondaryInterpretations))
+                .build()
+                .isSecondaryAssociationRiskFactorOrOther();
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,6 +26,7 @@ import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import de.charite.compbio.jannovar.mendel.SubModeOfInheritance;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 
@@ -40,8 +41,7 @@ public class InheritanceModeOptionsTest {
 
     private static final float DEFAULT_DOMINANT_FREQ = 0.1f;
 
-    //TODO: this value is too high and needs to be revised
-    private static final float DEFAULT_HOM_ALT_RECESSIVE_FREQ = 1.0f;
+    private static final float DEFAULT_HOM_ALT_RECESSIVE_FREQ = 0.1f;
     private static final float DEFAULT_COMP_HET_RECESSIVE_FREQ = 2.0f;
 
     private static final float DEFAULT_RECESSIVE_FREQ = DEFAULT_COMP_HET_RECESSIVE_FREQ;
@@ -52,22 +52,22 @@ public class InheritanceModeOptionsTest {
     public void empty() {
         InheritanceModeOptions instance = InheritanceModeOptions.empty();
 
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_DOMINANT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_RECESSIVE), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_RECESSIVE), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_DOMINANT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_RECESSIVE), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_RECESSIVE), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
 
         //
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_DOMINANT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_RECESSIVE_COMP_HET), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_RECESSIVE_HOM_ALT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.MITOCHONDRIAL), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_DOMINANT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_RECESSIVE_COMP_HET), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_RECESSIVE_HOM_ALT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.MITOCHONDRIAL), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
@@ -81,7 +81,7 @@ public class InheritanceModeOptionsTest {
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_RECESSIVE), equalTo(DEFAULT_RECESSIVE_FREQ));
 
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(DEFAULT_MITO_FREQ));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
@@ -98,7 +98,7 @@ public class InheritanceModeOptionsTest {
         assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.X_RECESSIVE_HOM_ALT), equalTo(DEFAULT_HOM_ALT_RECESSIVE_FREQ));
 
         assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.MITOCHONDRIAL), equalTo(DEFAULT_MITO_FREQ));
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
@@ -111,10 +111,10 @@ public class InheritanceModeOptionsTest {
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_DOMINANT), equalTo(DEFAULT_DOMINANT_FREQ));
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_RECESSIVE), equalTo(DEFAULT_RECESSIVE_FREQ));
         // undefined values
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_DOMINANT), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_RECESSIVE), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(Float.MAX_VALUE));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_DOMINANT), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_RECESSIVE), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(InheritanceModeOptions.MAX_FREQ));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
@@ -136,7 +136,7 @@ public class InheritanceModeOptionsTest {
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.X_DOMINANT), equalTo(DEFAULT_DOMINANT_FREQ));
 
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.MITOCHONDRIAL), equalTo(DEFAULT_MITO_FREQ));
-        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForMode(ModeOfInheritance.ANY), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
@@ -227,12 +227,12 @@ public class InheritanceModeOptionsTest {
         assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET), equalTo(1f));
         assertThat(instance.getMaxFreqForMode(ModeOfInheritance.AUTOSOMAL_RECESSIVE), equalTo(1f));
         //non-user-defined
-        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT), equalTo(Float.MAX_VALUE));
+        assertThat(instance.getMaxFreqForSubMode(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT), equalTo(InheritanceModeOptions.MAX_FREQ));
     }
 
     @Test
     public void getMaxFreq() {
-        assertThat(InheritanceModeOptions.empty().getMaxFreq(), equalTo(Float.MAX_VALUE));
+        assertThat(InheritanceModeOptions.empty().getMaxFreq(), equalTo(InheritanceModeOptions.MAX_FREQ));
         assertThat(InheritanceModeOptions.defaults().getMaxFreq(), equalTo(2.0f));
 
         Map<SubModeOfInheritance, Float> userDefinedThresholds = ImmutableMap.of(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET, 1f);
@@ -241,7 +241,39 @@ public class InheritanceModeOptionsTest {
     }
 
     @Test
+    void getMaxFreqsEmpty() {
+        assertThat(InheritanceModeOptions.empty().getMaxFreqs(), equalTo(ImmutableMap.of()));
+    }
+
+    @Test
+    void getMaxFreqsDefaults() {
+        Map<SubModeOfInheritance, Float> expected = new EnumMap<>(SubModeOfInheritance.class);
+        expected.put(SubModeOfInheritance.AUTOSOMAL_DOMINANT, 0.1f);
+        expected.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET, 2.0f);
+        expected.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT, 0.1f);
+
+        expected.put(SubModeOfInheritance.X_DOMINANT, 0.1f);
+        expected.put(SubModeOfInheritance.X_RECESSIVE_COMP_HET, 2.0f);
+        expected.put(SubModeOfInheritance.X_RECESSIVE_HOM_ALT, 0.1f);
+
+        expected.put(SubModeOfInheritance.MITOCHONDRIAL, 0.2f);
+
+        InheritanceModeOptions instance = InheritanceModeOptions.defaults();
+        assertThat(instance.getMaxFreqs(), equalTo(expected));
+    }
+
+    @Test
+    void getMaxFreqUserDefined() {
+        Map<SubModeOfInheritance, Float> expected = new EnumMap<>(SubModeOfInheritance.class);
+        expected.put(SubModeOfInheritance.AUTOSOMAL_DOMINANT, 0.1f);
+        expected.put(SubModeOfInheritance.X_DOMINANT, 0.1f);
+
+        InheritanceModeOptions instance = InheritanceModeOptions.of(expected);
+        assertThat(instance.getMaxFreqs(), equalTo(expected));
+    }
+
+    @Test
     public void testToString() {
-        System.out.println(InheritanceModeOptions.defaults());
+        assertThat(InheritanceModeOptions.defaults().toString(), equalTo("InheritanceModeMaxFrequencies{AUTOSOMAL_DOMINANT=0.1, AUTOSOMAL_RECESSIVE_COMP_HET=2.0, AUTOSOMAL_RECESSIVE_HOM_ALT=0.1, X_RECESSIVE_COMP_HET=2.0, X_RECESSIVE_HOM_ALT=0.1, X_DOMINANT=0.1, MITOCHONDRIAL=0.2}"));
     }
 }

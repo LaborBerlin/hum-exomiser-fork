@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ public class HiPhiveOptionsTest {
     @Test
     public void testReturnsFalseWithDefaultConstructor() {
         HiPhiveOptions instance = HiPhiveOptions.builder().build();
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -136,6 +136,21 @@ public class HiPhiveOptionsTest {
     }
 
     @Test
+    void testGetRunParams() {
+        HiPhiveOptions defaultInstance = HiPhiveOptions.builder().runParams("human,mouse,fish , ppi").build();
+        assertThat(defaultInstance.getRunParams(), equalTo("human, mouse, fish, ppi"));
+
+        HiPhiveOptions humanOnly = HiPhiveOptions.builder().runParams("human").build();
+        assertThat(humanOnly.getRunParams(), equalTo("human"));
+
+        HiPhiveOptions humanMouseOnly = HiPhiveOptions.builder().runParams("human, mouse").build();
+        assertThat(humanMouseOnly.getRunParams(), equalTo("human, mouse"));
+
+        HiPhiveOptions fishOnly = HiPhiveOptions.builder().runParams("fish").build();
+        assertThat(fishOnly.getRunParams(), equalTo("fish"));
+    }
+
+    @Test
     public void testBuilderRunParams() {
         HiPhiveOptions instance = HiPhiveOptions.builder()
                 .runParams("human,mouse,fish,ppi")
@@ -174,7 +189,7 @@ public class HiPhiveOptionsTest {
                 .candidateGeneSymbol(candidateGeneSymbol)
                 .diseaseId(diseaseId)
                 .build();
-        assertThat(instance.isBenchmarkHit(model), is(true));
+        assertThat(instance.isBenchmarkingModel(model), is(true));
     }
 
     @Test
@@ -189,7 +204,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(true));
+        assertThat(instance.isBenchmarkingModel(model), is(true));
     }
 
     @Test
@@ -202,7 +217,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -227,7 +242,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(null)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -240,7 +255,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -253,7 +268,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -266,7 +281,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -279,7 +294,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -293,7 +308,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test
@@ -308,7 +323,7 @@ public class HiPhiveOptionsTest {
                 .diseaseId(diseaseId)
                 .build();
 
-        assertThat(instance.isBenchmarkHit(model), is(false));
+        assertThat(instance.isBenchmarkingModel(model), is(false));
     }
 
     @Test

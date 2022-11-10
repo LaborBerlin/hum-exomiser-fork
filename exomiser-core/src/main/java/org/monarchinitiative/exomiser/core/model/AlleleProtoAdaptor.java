@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.ClinVarData;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicityData;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicityScore;
@@ -32,6 +31,7 @@ import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicitySour
 import org.monarchinitiative.exomiser.core.proto.AlleleProto.AlleleKey;
 import org.monarchinitiative.exomiser.core.proto.AlleleProto.AlleleProperties;
 import org.monarchinitiative.exomiser.core.proto.AlleleProto.ClinVar;
+import org.monarchinitiative.svart.Variant;
 
 import java.util.*;
 
@@ -105,10 +105,10 @@ public class AlleleProtoAdaptor {
         // ARGH! I didn't put the frikking genome assembly in the alleleKey!
         // adding it will probably make the data backwards-incompatible as the MVStore is essentially a TreeMap
         return AlleleKey.newBuilder()
-                .setChr(variant.getChromosome())
-                .setPosition(variant.getPosition())
-                .setRef(variant.getRef())
-                .setAlt(variant.getAlt())
+                .setChr(variant.contigId())
+                .setPosition(variant.start())
+                .setRef(variant.ref())
+                .setAlt(variant.alt())
                 .build();
     }
 
@@ -116,9 +116,8 @@ public class AlleleProtoAdaptor {
         if (alleleProperties.equals(AlleleProperties.getDefaultInstance())) {
             return FrequencyData.empty();
         }
-        RsId rsId = RsId.of(alleleProperties.getRsId());
         List<Frequency> frequencies = parseFrequencyData(alleleProperties.getPropertiesMap());
-        return FrequencyData.of(rsId, frequencies);
+        return FrequencyData.of(alleleProperties.getRsId(), frequencies);
     }
 
     private static List<Frequency> parseFrequencyData(Map<String, Float> values) {

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,15 +20,14 @@
 
 package org.monarchinitiative.exomiser.core.genome;
 
+import de.charite.compbio.jannovar.annotation.SVAnnotations;
+import de.charite.compbio.jannovar.annotation.SVAnnotator;
 import de.charite.compbio.jannovar.annotation.VariantAnnotations;
 import de.charite.compbio.jannovar.annotation.VariantAnnotator;
 import de.charite.compbio.jannovar.annotation.builders.AnnotationBuilderOptions;
 import de.charite.compbio.jannovar.data.JannovarData;
 import de.charite.compbio.jannovar.data.ReferenceDictionary;
-import de.charite.compbio.jannovar.reference.GenomePosition;
-import de.charite.compbio.jannovar.reference.GenomeVariant;
-import de.charite.compbio.jannovar.reference.PositionType;
-import de.charite.compbio.jannovar.reference.Strand;
+import de.charite.compbio.jannovar.reference.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,12 +47,12 @@ public class JannovarAnnotationService {
 
     private final ReferenceDictionary referenceDictionary;
     private final VariantAnnotator variantAnnotator;
-
+    private final SVAnnotator structuralVariantAnnotator;
 
     public JannovarAnnotationService(JannovarData jannovarData) {
         this.referenceDictionary = jannovarData.getRefDict();
         this.variantAnnotator = new VariantAnnotator(jannovarData.getRefDict(), jannovarData.getChromosomes(), new AnnotationBuilderOptions());
-
+        this.structuralVariantAnnotator = new SVAnnotator(jannovarData.getRefDict(), jannovarData.getChromosomes());
     }
 
     /**
@@ -68,21 +67,21 @@ public class JannovarAnnotationService {
      * conventions.
      */
     public VariantAnnotations annotateVariant(String contig, int pos, String ref, String alt) {
-        GenomeVariant genomeVariant = buildOneBasedFwdStrandGenomicVariant(contig, pos, ref, alt);
+        GenomePosition genomePosition = buildGenomePosition(contig, pos);
+        GenomeVariant genomeVariant = new GenomeVariant(genomePosition, ref, alt);
         return annotateGenomeVariant(genomeVariant);
     }
 
-    private GenomeVariant buildOneBasedFwdStrandGenomicVariant(String contig, int pos, String ref, String alt) {
+    private GenomePosition buildGenomePosition(String contig, int pos) {
         int chr = getIntValueOfChromosomeOrZero(contig);
-        GenomePosition genomePosition = new GenomePosition(referenceDictionary, Strand.FWD, chr, pos, PositionType.ONE_BASED);
-        return new GenomeVariant(genomePosition, ref, alt);
+        return new GenomePosition(referenceDictionary, Strand.FWD, chr, pos, PositionType.ONE_BASED);
     }
 
-    private Integer getIntValueOfChromosomeOrZero(String contig) {
+    private int getIntValueOfChromosomeOrZero(String contig) {
         return referenceDictionary.getContigNameToID().getOrDefault(contig, UNKNOWN_CHROMOSOME);
     }
 
-    private VariantAnnotations annotateGenomeVariant(GenomeVariant genomeVariant) {
+    public VariantAnnotations annotateGenomeVariant(GenomeVariant genomeVariant) {
         if (genomeVariant.getChr() == UNKNOWN_CHROMOSOME) {
             //Need to check this here and return otherwise the variantAnnotator will throw a NPE.
             return VariantAnnotations.buildEmptyList(genomeVariant);
@@ -100,4 +99,23 @@ public class JannovarAnnotationService {
         return VariantAnnotations.buildEmptyList(genomeVariant);
     }
 
+    /**
+     * @param svGenomeVariant A Jannovar {@link SVGenomeVariant} requiring annotation
+     * @return a set of {@link SVAnnotations} for the given {@link SVGenomeVariant}. CAUTION! THE RETURNED ANNOTATIONS
+     * WILL USE ZERO-BASED COORDINATES AND WILL BE TRIMMED LEFT SIDE FIRST, ie. RIGHT SHIFTED. This is counter to VCF
+     * conventions.
+     * @since 13.0.0
+     */
+    public SVAnnotations annotateSvGenomeVariant(SVGenomeVariant svGenomeVariant) {
+        try {
+            return structuralVariantAnnotator.buildAnnotations(svGenomeVariant);
+        } catch (Exception e) {
+            logger.debug("Unable to annotate variant {}-{}-{}",
+                    svGenomeVariant.getChrName(),
+                    svGenomeVariant.getPos(),
+                    svGenomeVariant.getPos2(),
+                    e);
+        }
+        return SVAnnotations.buildEmptyList(svGenomeVariant);
+    }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ package org.monarchinitiative.exomiser.core;
 
 import org.junit.jupiter.api.Test;
 import org.monarchinitiative.exomiser.core.analysis.*;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisServiceProvider;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
@@ -54,31 +55,32 @@ public class ExomiserTest {
 
     private final GenomeAnalysisServiceProvider genomeAnalysisServiceProvider = new GenomeAnalysisServiceProvider(TestFactory
             .buildDefaultHg19GenomeAnalysisService());
-    private final PriorityFactory priorityFactory = new PriorityFactoryImpl(TestPriorityServiceFactory.TEST_SERVICE, null, null);
+    private final PriorityFactory priorityFactory = new PriorityFactoryImpl(TestPriorityServiceFactory.testPriorityService(), null, null);
     private final OntologyService ontologyService = TestOntologyService.builder().build();
 
     private final AnalysisFactory analysisFactory = new AnalysisFactory(genomeAnalysisServiceProvider, priorityFactory, ontologyService);
     //AnalysisFactory is only ever used here, but it provides a clean interface to the Analysis module
-    private Exomiser instance = new Exomiser(analysisFactory);
+    private final Exomiser instance = new Exomiser(analysisFactory);
+
+    private final Sample sample = Sample.builder().vcfPath(VCF_PATH).build();
 
     private Analysis makeAnalysisWithMode(AnalysisMode analysisMode) {
         return instance.getAnalysisBuilder()
-                .vcfPath(VCF_PATH)
                 .analysisMode(analysisMode)
                 .build();
     }
-    
+
     @Test
     public void canRunAnalysisFull() {
         Analysis analysis = makeAnalysisWithMode(AnalysisMode.FULL);
-        AnalysisResults analysisResults = instance.run(analysis);
+        AnalysisResults analysisResults = instance.run(sample, analysis);
         assertThat(analysisResults.getGenes().size(), equalTo(2));
     }
     
     @Test
     public void canRunAnalysisPassOnly() {
         Analysis analysis = makeAnalysisWithMode(AnalysisMode.PASS_ONLY);
-        AnalysisResults analysisResults = instance.run(analysis);
+        AnalysisResults analysisResults = instance.run(sample, analysis);
         assertThat(analysisResults.getGenes().size(), equalTo(2));
     }
 
@@ -92,21 +94,27 @@ public class ExomiserTest {
 
         Exomiser twoAssembliesSupportedExomiser = new Exomiser(analysisFactory);
 
-        Analysis hg37Analysis = twoAssembliesSupportedExomiser.getAnalysisBuilder()
+        Sample hg37Sample = Sample.builder()
                 .vcfPath(VCF_PATH)
                 .genomeAssembly(GenomeAssembly.HG19)
+                .build();
+
+        Analysis hg37Analysis = twoAssembliesSupportedExomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.PASS_ONLY)
                 .build();
-        AnalysisResults hg37AnalysisResults = twoAssembliesSupportedExomiser.run(hg37Analysis);
+        AnalysisResults hg37AnalysisResults = twoAssembliesSupportedExomiser.run(hg37Sample, hg37Analysis);
         assertThat(hg37AnalysisResults.getGenes().size(), equalTo(2));
 
 
-        Analysis hg38Analysis = twoAssembliesSupportedExomiser.getAnalysisBuilder()
+        Sample hg38Sample = Sample.builder()
                 .vcfPath(VCF_PATH)
                 .genomeAssembly(GenomeAssembly.HG38)
+                .build();
+
+        Analysis hg38Analysis = twoAssembliesSupportedExomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.PASS_ONLY)
                 .build();
-        AnalysisResults hg38AnalysisResults = twoAssembliesSupportedExomiser.run(hg38Analysis);
+        AnalysisResults hg38AnalysisResults = twoAssembliesSupportedExomiser.run(hg38Sample, hg38Analysis);
         assertThat(hg38AnalysisResults.getGenes().size(), equalTo(2));
     }
 

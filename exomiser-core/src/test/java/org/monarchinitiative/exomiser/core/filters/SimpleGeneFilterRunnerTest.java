@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@ package org.monarchinitiative.exomiser.core.filters;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.FilterStatus;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
@@ -82,8 +83,8 @@ public class SimpleGeneFilterRunnerTest {
         //Add some variants. For the purposes of this test these are required to
         //have the same inheritance mode as the gene to satisfy the unique bahaviour of the Inheritance filter. 
         //TODO: change this - mock filter required? We're not trying to test the functionality of the InheritanceFilter here.
-        gene.addVariant(VariantEvaluation.builder(1, 1, "A", "T").build());
-        gene.addVariant(VariantEvaluation.builder(1, 2, "G", "T").build());
+        gene.addVariant(TestFactory.variantBuilder(1, 1, "A", "T").build());
+        gene.addVariant(TestFactory.variantBuilder(1, 2, "G", "T").build());
         for (VariantEvaluation variantEvaluation : gene.getVariantEvaluations()) {
             variantEvaluation.setCompatibleInheritanceModes(inheritanceModes);
         }
@@ -107,10 +108,10 @@ public class SimpleGeneFilterRunnerTest {
         if (filterStatus == FilterStatus.FAILED) {
             hasPassed = false;
         }
-        System.out.println(gene);
-        for (VariantEvaluation variantEvaluation :  gene.getVariantEvaluations()) {
-            System.out.println(variantEvaluation);
-        }
+//        System.out.println(gene);
+//        for (VariantEvaluation variantEvaluation :  gene.getVariantEvaluations()) {
+//            System.out.println(variantEvaluation);
+//        }
 
         assertThat(gene.passedFilters(), equalTo(hasPassed));
         for (GeneFilter filter : filters) {

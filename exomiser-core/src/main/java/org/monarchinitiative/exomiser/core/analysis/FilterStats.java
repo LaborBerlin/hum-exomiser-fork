@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ import org.monarchinitiative.exomiser.core.filters.FilterResult;
 import org.monarchinitiative.exomiser.core.filters.FilterType;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @since 12.0.0
@@ -35,7 +36,7 @@ class FilterStats {
     // filtersRun requires an ordered map.
     private final Set<FilterType> filtersRun = new LinkedHashSet<>();
 
-    synchronized void addResult(FilterResult result) {
+    public synchronized void addResult(FilterResult result) {
         FilterType filterType = result.getFilterType();
         filtersRun.add(filterType);
 
@@ -48,21 +49,89 @@ class FilterStats {
         filterCounters.put(filterType, counter);
     }
 
-    int getPassCountForFilter(FilterType filterType) {
+    public int getPassCountForFilter(FilterType filterType) {
         FilterCounter filterCounter = filterCounters.get(filterType);
         return filterCounter == null ? 0 : filterCounter.getPassCount();
     }
 
-    int getFailCountForFilter(FilterType filterType) {
+    public int getFailCountForFilter(FilterType filterType) {
         FilterCounter filterCounter = filterCounters.get(filterType);
         return filterCounter == null ? 0 : filterCounter.getFailCount();
     }
 
-    List<FilterType> getFilters() {
+    public List<FilterType> getFilters() {
         return new ArrayList<>(filtersRun);
     }
 
-    private class FilterCounter {
+    /**
+     * @since 13.0.0
+     */
+    public boolean isEmpty() {
+        return filtersRun.isEmpty();
+    }
+
+    /**
+     * @since 13.0.0
+     */
+    public List<FilterCount> getFilterCounts() {
+        return filtersRun.stream()
+                .map(filterType -> new FilterCount(filterType, filterCounters.get(filterType)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * @since 13.0.0
+     */
+    public static class FilterCount {
+
+        private final FilterType filterType;
+        private final int passCount;
+        private final int failCount;
+
+        private FilterCount(FilterType filterType, FilterCounter filterCounter) {
+            this.filterType = filterType;
+            this.passCount = filterCounter.passCount;
+            this.failCount = filterCounter.failCount;
+        }
+
+        public FilterType getFilterType() {
+            return filterType;
+        }
+
+        public int getPassCount() {
+            return passCount;
+        }
+
+        public int getFailCount() {
+            return failCount;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof FilterCount)) return false;
+            FilterCount that = (FilterCount) o;
+            return passCount == that.passCount &&
+                    failCount == that.failCount &&
+                    filterType == that.filterType;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(filterType, passCount, failCount);
+        }
+
+        @Override
+        public String toString() {
+            return "FilterStat{" +
+                    "filterType=" + filterType +
+                    ", passCount=" + passCount +
+                    ", failCount=" + failCount +
+                    '}';
+        }
+    }
+
+    private static class FilterCounter {
         int passCount = 0;
         int failCount = 0;
 

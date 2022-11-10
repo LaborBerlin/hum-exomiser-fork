@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,11 +26,11 @@
 package org.monarchinitiative.exomiser.core.filters;
 
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,7 +47,7 @@ public class KnownVariantFilterTest {
     private final FilterResult FAIL_RESULT = new FailFilterResult(FilterType.KNOWN_VARIANT_FILTER);
     
     private VariantEvaluation buildVariantWithFrequencyData(FrequencyData frequencyData) {
-        return VariantEvaluation.builder(1, 1, "A", "T").frequencyData(frequencyData).build();
+        return TestFactory.variantBuilder(1, 1, "A", "T").frequencyData(frequencyData).build();
     }
 
     @Test
@@ -57,7 +57,7 @@ public class KnownVariantFilterTest {
 
     @Test
     public void testRunFilterReturnsFailResultWhenFilteringVariantWithRsId() {
-        FrequencyData frequencyData = FrequencyData.of(RsId.of(12345));
+        FrequencyData frequencyData = FrequencyData.of("rs12345");
         VariantEvaluation variantEvaluation = buildVariantWithFrequencyData(frequencyData);
         FilterResult filterResult = instance.runFilter(variantEvaluation);
         assertThat(filterResult, equalTo(FAIL_RESULT));
@@ -65,7 +65,7 @@ public class KnownVariantFilterTest {
     
     @Test
     public void testRunFilterReturnsFailResultWhenFilteringVariantWithKnownFrequency() {
-        FrequencyData frequencyData = FrequencyData.of(RsId.empty(), Frequency.of(FrequencySource.THOUSAND_GENOMES, 1f));
+        FrequencyData frequencyData = FrequencyData.of(Frequency.of(FrequencySource.THOUSAND_GENOMES, 1f));
         VariantEvaluation variantEvaluation = buildVariantWithFrequencyData(frequencyData);
         FilterResult filterResult = instance.runFilter(variantEvaluation);
         assertThat(filterResult, equalTo(FAIL_RESULT));

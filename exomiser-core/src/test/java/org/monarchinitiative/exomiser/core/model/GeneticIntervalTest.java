@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -95,9 +95,15 @@ public class GeneticIntervalTest {
     }
 
     @Test
-    public void testParseStringThrowsErrorOnMissingChromosomePrefix() {
+    public void testParseStringMtPrefix() {
+        String interval = "MT:123-456";
+        assertThat(GeneticInterval.parseString(interval), equalTo(new GeneticInterval(25, 123, 456)));
+    }
+
+    @Test
+    public void testParseStringNoChrPrefix() {
         String interval = "3:123-456";
-        assertThrows(IllegalArgumentException.class, () -> GeneticInterval.parseString(interval));
+        assertThat(GeneticInterval.parseString(interval), equalTo(new GeneticInterval(3, 123, 456)));
     }
 
     @Test
@@ -144,17 +150,17 @@ public class GeneticIntervalTest {
 
     @Test
     public void testGetChromosome() {
-        assertThat(instance.getChromosome(), equalTo(CHR));
+        assertThat(instance.contigId(), equalTo(CHR));
     }
 
     @Test
     public void testGetStart() {
-        assertThat(instance.getStart(), equalTo(START));
+        assertThat(instance.start(), equalTo(START));
     }
 
     @Test
     public void testGetEnd() {
-        assertThat(instance.getEnd(), equalTo(END));
+        assertThat(instance.end(), equalTo(END));
     }
 
     @Test
@@ -204,4 +210,9 @@ public class GeneticIntervalTest {
         assertThat(instance.toString(), equalTo("chr2:123-456"));
     }
 
+    @Test
+    void testMitochnodrialRoundTrip() {
+        GeneticInterval mito = GeneticInterval.parseString("chrM:100-200");
+        assertThat(mito.toString(), equalTo("chrM:100-200"));
+    }
 }

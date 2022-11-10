@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,9 +29,9 @@ import org.monarchinitiative.exomiser.core.genome.dao.*;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.context.annotation.Configuration;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
@@ -43,13 +43,12 @@ public class Hg38GenomeAnalysisServiceAutoConfigurationTest extends AbstractAuto
 
         load(EmptyConfiguration.class, TEST_DATA_ENV, "exomiser.hg38.data-version=1710");
 
-        GenomeAnalysisService genomeAnalysisService = (GenomeAnalysisService) this.context.getBean("hg38genomeAnalysisService");
+        GenomeAnalysisService genomeAnalysisService = (GenomeAnalysisService) context.getBean("hg38genomeAnalysisService");
         assertThat(genomeAnalysisService.getGenomeAssembly(), equalTo(GenomeAssembly.HG38));
 
         assertThat(context.getBean("hg38jannovarData"), instanceOf(JannovarData.class));
         assertThat(context.getBean("hg38mvStore"), instanceOf(MVStore.class));
         assertThat(context.getBean("hg38variantAnnotator"), instanceOf(VariantAnnotator.class));
-        assertThat(context.getBean("hg38variantFactory"), instanceOf(VariantFactory.class));
         assertThat(context.getBean("hg38variantDataService"), instanceOf(VariantDataService.class));
         assertThat(context.getBean("hg38genomeDataService"), instanceOf(GenomeDataService.class));
 
@@ -62,6 +61,7 @@ public class Hg38GenomeAnalysisServiceAutoConfigurationTest extends AbstractAuto
 
     @Test
     public void genomeAnalysisServiceWithOptionalTestPathDao() throws Exception {
+
         String testPathogenicitySourcePath = TEST_DATA.resolve("remm/remmData.tsv.gz").toAbsolutePath().toString();
         load(EmptyConfiguration.class, TEST_DATA_ENV, "exomiser.hg38.data-version=1710", "exomiser.hg38.test-pathogenicity-score-path=" + testPathogenicitySourcePath);
 

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.ChromosomalRegion;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.model.GeneticInterval;
@@ -39,7 +40,6 @@ import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 import org.monarchinitiative.exomiser.core.prioritisers.PriorityType;
 
 import java.util.ArrayList;
@@ -77,13 +77,13 @@ public class FilterReportFactoryTest {
     }
 
     private VariantEvaluation makeFailedVariant(FilterType filterType) {
-        return VariantEvaluation.builder(6, 1000000, "C", "T")
+        return TestFactory.variantBuilder(6, 1000000, "C", "T")
                 .filterResults(new FailFilterResult(filterType))
                 .build();
     }
 
     private VariantEvaluation makePassedVariant(FilterType filterType) {
-        return VariantEvaluation.builder(6, 1000000, "C", "T")
+        return TestFactory.variantBuilder(6, 1000000, "C", "T")
                 .filterResults(new PassFilterResult(filterType))
                 .build();
     }
@@ -189,7 +189,7 @@ public class FilterReportFactoryTest {
         variantEvaluations.add(completelyNovelVariantEval);
         
         VariantEvaluation mostCommonVariantEvalInTheWorld = makeFailedVariant(filterType);
-        mostCommonVariantEvalInTheWorld.setFrequencyData(FrequencyData.of(RsId.of(123456), Frequency.of(FrequencySource.THOUSAND_GENOMES, 100f), Frequency
+        mostCommonVariantEvalInTheWorld.setFrequencyData(FrequencyData.of("rs123456", Frequency.of(FrequencySource.THOUSAND_GENOMES, 100f), Frequency
                 .of(FrequencySource.ESP_ALL, 100f), Frequency.of(FrequencySource.EXAC_OTHER, 100f)));
         variantEvaluations.add(mostCommonVariantEvalInTheWorld);
 
@@ -197,7 +197,6 @@ public class FilterReportFactoryTest {
         FilterReport report = new FilterReport(filter.getFilterType(), 1, 1, messages);
 
         FilterReport result = instance.makeFilterReport(filter, analysisResults);
-        System.out.println(result);
         assertThat(result, equalTo(report));
     }
     
@@ -212,10 +211,10 @@ public class FilterReportFactoryTest {
         
         VariantEvaluation mostCommonVariantEvalInTheWorld = makeFailedVariant(filterType);
         mostCommonVariantEvalInTheWorld.setFrequencyData(
-                FrequencyData.of(RsId.of(123456),
-                    Frequency.of(FrequencySource.THOUSAND_GENOMES, 100f),
-                    Frequency.of(FrequencySource.ESP_ALL, 100f),
-                    Frequency.of(FrequencySource.EXAC_OTHER, 100f)
+                FrequencyData.of("rs123456",
+                        Frequency.of(FrequencySource.THOUSAND_GENOMES, 100f),
+                        Frequency.of(FrequencySource.ESP_ALL, 100f),
+                        Frequency.of(FrequencySource.EXAC_OTHER, 100f)
                 ));
         variantEvaluations.add(mostCommonVariantEvalInTheWorld);
 
@@ -228,7 +227,6 @@ public class FilterReportFactoryTest {
 
         FilterReport report = new FilterReport(filter.getFilterType(), 1, 1, messages);
         FilterReport result = instance.makeFilterReport(filter, analysisResults);
-        System.out.println(result);
 
         assertThat(result, equalTo(report));
     }

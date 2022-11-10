@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,6 @@ package org.monarchinitiative.exomiser.core.prioritisers;
 import org.jblas.FloatMatrix;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.prioritisers.util.DataMatrix;
-import org.monarchinitiative.exomiser.core.prioritisers.util.DataMatrixIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,54 +54,30 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
 
     private static final Logger logger = LoggerFactory.getLogger(ExomeWalkerPriority.class);
 
-    private final PriorityType priorityType = PriorityType.EXOMEWALKER_PRIORITY;
+    private static final PriorityType PRIORITY_TYPE = PriorityType.EXOMEWALKER_PRIORITY;
 
     /**
      * A list of messages that can be used to create a display in a HTML page or
      * elsewhere.
      */
-    private List<String> messages = new ArrayList<>();
+    private final List<String> messages = new ArrayList<>();
 
     /**
      * The random walk matrix object
      */
-    private DataMatrix randomWalkMatrix;
+    private final DataMatrix randomWalkMatrix;
 
     /**
      * List of the Entrez Gene IDs corresponding to the disease gene family that
      * will be used to prioritize the genes with variants in the exome.
      */
-    private List<Integer> seedGenes = new ArrayList<>();
+    private final List<Integer> seedGenes;
 
     /**
      * This is the matrix of similarities between the seeed genes and all genes
      * in the network, i.e., p<sub>infinity</sub>.
      */
-    private FloatMatrix combinedProximityVector;
-
-    /**
-     * Create a new instance of the {@link ExomeWalkerPriority}.
-     *
-     * Assumes the list of seed genes (Entrez gene IDs) has been set!! This
-     * happens with the method {@link #setParameters}.
-     *
-     * @param randomWalkMatrixFileZip The zipped(!) RandomWalk matrix file.
-     * @param randomWalkGeneId2IndexFileZip The zipped(!) file with the mapping
-     * between Entrez-Ids and Matrix-Indices.
-     * @see <a
-     * href="http://compbio.charite.de/hudson/job/randomWalkMatrix/">Uberpheno
-     * Hudson page</a>
-     */
-    public ExomeWalkerPriority(String randomWalkMatrixFileZip, String randomWalkGeneId2IndexFileZip) {
-        if (randomWalkMatrix == null) {
-            try {
-                randomWalkMatrix = DataMatrixIO.loadInMemoryDataMatrixFromFile(randomWalkMatrixFileZip, randomWalkGeneId2IndexFileZip, true);
-            } catch (Exception e) {
-                /* This exception is thrown if the files for the random walk cannot be found. */
-                logger.error("Unable to initialize the random walk matrix", e);
-            }
-        }
-    }
+    private final FloatMatrix combinedProximityVector;
 
     /**
      *
@@ -111,9 +86,12 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
      */
     public ExomeWalkerPriority(DataMatrix randomWalkMatrix, List<Integer> entrezSeedGenes) {
         this.randomWalkMatrix = randomWalkMatrix;
-        this.seedGenes = new ArrayList<>();
-        addMatchedGenesToSeedGeneList(entrezSeedGenes);
-        computeDistanceAllNodesFromStartNodes();
+        this.seedGenes = addMatchedGenesToSeedGeneList(this.randomWalkMatrix, entrezSeedGenes);
+        this.combinedProximityVector = computeDistanceAllNodesFromStartNodes(this.randomWalkMatrix, this.seedGenes);
+    }
+
+    public List<Integer> getSeedGenes() {
+        return seedGenes;
     }
 
     /**
@@ -122,18 +100,20 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
      *
      * @param entrezSeedGenes
      */
-    private void addMatchedGenesToSeedGeneList(List<Integer> entrezSeedGenes) {
+    private List<Integer> addMatchedGenesToSeedGeneList(DataMatrix randomWalkMatrix, List<Integer> entrezSeedGenes) {
+        List<Integer> matchedGeneIdentifiers = new ArrayList<>();
         for (Integer entrezId : entrezSeedGenes) {
             if (randomWalkMatrix.containsGene(entrezId)) {
-                seedGenes.add(entrezId);
+                matchedGeneIdentifiers.add(entrezId);
             } else {
                 logger.warn("Cannot use entrez-id {} as seed gene as it is not present in the DataMatrix provided.", entrezId);
             }
         }
 
-        if (this.seedGenes.isEmpty()) {
-            logger.error("Could not find any of the given genes in random-walk matrix. You gave: {}", entrezSeedGenes);
+        if (matchedGeneIdentifiers.isEmpty()) {
+            logger.error("Could not find any of the given genes in random-walk matrix. You gave entrez ids: {}", entrezSeedGenes);
         }
+        return matchedGeneIdentifiers;
     }
 
     /**
@@ -141,14 +121,18 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
      */
     @Override
     public PriorityType getPriorityType() {
-        return priorityType;
+        return PRIORITY_TYPE;
     }
 
     /**
      * Compute the distance of all genes in the Random Walk matrix to the set of
      * seed genes given by the user.
+     *
+     * @param randomWalkMatrix
+     * @param seedGenes
      */
-    private void computeDistanceAllNodesFromStartNodes() {
+    private FloatMatrix computeDistanceAllNodesFromStartNodes(DataMatrix randomWalkMatrix, List<Integer> seedGenes) {
+        FloatMatrix seedGeneProximityVectors = FloatMatrix.EMPTY;
         boolean first = true;
         for (Integer seedGeneEntrezId : seedGenes) {
             if (!randomWalkMatrix.containsGene(seedGeneEntrezId)) {
@@ -164,12 +148,13 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
 
             // for the first column/known gene we have to init the resulting vector
             if (first) {
-                combinedProximityVector = column;
+                seedGeneProximityVectors = column;
                 first = false;
             } else {
-                combinedProximityVector = combinedProximityVector.add(column);
+                seedGeneProximityVectors = seedGeneProximityVectors.add(column);
             }
         }
+        return seedGeneProximityVectors;
     }
 
     @Override
@@ -242,7 +227,7 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
     @Override
     public int hashCode() {
         int hash = 7;
-        hash = 37 * hash + Objects.hashCode(this.priorityType);
+        hash = 37 * hash + Objects.hashCode(this.PRIORITY_TYPE);
         hash = 37 * hash + Objects.hashCode(this.seedGenes);
         return hash;
     }
@@ -256,7 +241,7 @@ public class ExomeWalkerPriority implements Prioritiser<ExomeWalkerPriorityResul
             return false;
         }
         final ExomeWalkerPriority other = (ExomeWalkerPriority) obj;
-        if (this.priorityType != other.priorityType) {
+        if (this.PRIORITY_TYPE != other.PRIORITY_TYPE) {
             return false;
         }
         return Objects.equals(this.seedGenes, other.seedGenes);

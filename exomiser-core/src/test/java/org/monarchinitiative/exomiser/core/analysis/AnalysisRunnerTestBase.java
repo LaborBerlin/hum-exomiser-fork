@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@
  */
 package org.monarchinitiative.exomiser.core.analysis;
 
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
 import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.Gene;
@@ -33,8 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -49,17 +48,30 @@ import static java.util.stream.Collectors.toMap;
 public abstract class AnalysisRunnerTestBase {
 
     private static final Logger logger = LoggerFactory.getLogger(AnalysisRunnerTestBase.class);
- 
-    protected final Path vcfPath = Paths.get("src/test/resources/smallTest.vcf");
+
+    protected final Path vcfPath = Path.of("src/test/resources/smallTest.vcf");
+    protected final List<String> hpoIds = List.of("HP:0000001");
 
     final GenomeAnalysisService genomeAnalysisService = TestFactory.buildDefaultHg19GenomeAnalysisService();
 
-    Analysis makeAnalysis(Path vcfPath, AnalysisStep... analysisSteps) {
+    protected final Sample vcfOnlySample = Sample.builder()
+            .vcfPath(vcfPath)
+            .build();
+
+    protected final Sample vcfandPhenotypesSample = Sample.builder()
+            .vcfPath(vcfPath)
+            .hpoIds(hpoIds)
+            .build();
+
+    protected final Sample phenotypesOnlySample = Sample.builder()
+            .hpoIds(hpoIds)
+            .build();
+
+    Analysis makeAnalysis(AnalysisStep... analysisSteps) {
         return Analysis.builder()
-                .vcfPath(vcfPath)
-                .steps(Arrays.asList(analysisSteps))
+                .steps(List.of(analysisSteps))
                 .build();
-        }
+    }
 
     Map<String, Gene> makeResults(List<Gene> genes) {
         return genes.stream().collect(toMap(Gene::getGeneSymbol, Function.identity()));
@@ -67,9 +79,9 @@ public abstract class AnalysisRunnerTestBase {
 
     void printResults(AnalysisResults analysisResults) {
         for (Gene gene : analysisResults.getGenes()) {
-            logger.info("{}", gene);
+            logger.debug("{}", gene);
             for (VariantEvaluation variantEvaluation : gene.getVariantEvaluations()) {
-                logger.info("{}", variantEvaluation);
+                logger.debug("{}", variantEvaluation);
             }
         }
     }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,9 +29,9 @@ import org.monarchinitiative.exomiser.core.genome.dao.*;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.context.annotation.Configuration;
 
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
@@ -39,17 +39,16 @@ import static org.junit.Assert.assertThat;
 public class Hg19GenomeAnalysisServiceAutoConfigurationTest extends AbstractAutoConfigurationTest {
 
     @Test
-    public synchronized void genomeAnalysisService() throws Exception {
+    public void genomeAnalysisService() throws Exception {
 
-        load(EmptyConfiguration.class, TEST_DATA_ENV, "exomiser.hg19.data-version=1710", "exomiser.hg19.local-frequency-path=../local/local_freq.tsv.gz");
+        load(EmptyConfiguration.class, TEST_DATA_ENV, "exomiser.hg19.data-version=1710");
 
-        GenomeAnalysisService genomeAnalysisService = (GenomeAnalysisService) this.context.getBean("hg19genomeAnalysisService");
+        GenomeAnalysisService genomeAnalysisService = (GenomeAnalysisService) context.getBean("hg19genomeAnalysisService");
         assertThat(genomeAnalysisService.getGenomeAssembly(), equalTo(GenomeAssembly.HG19));
 
         assertThat(context.getBean("hg19jannovarData"), instanceOf(JannovarData.class));
         assertThat(context.getBean("hg19mvStore"), instanceOf(MVStore.class));
         assertThat(context.getBean("hg19variantAnnotator"), instanceOf(VariantAnnotator.class));
-        assertThat(context.getBean("hg19variantFactory"), instanceOf(VariantFactory.class));
         assertThat(context.getBean("hg19variantDataService"), instanceOf(VariantDataService.class));
         assertThat(context.getBean("hg19genomeDataService"), instanceOf(GenomeDataService.class));
 
@@ -61,7 +60,7 @@ public class Hg19GenomeAnalysisServiceAutoConfigurationTest extends AbstractAuto
     }
 
     @Test
-    public synchronized void genomeAnalysisServiceWithOptionalTestPathDao() throws Exception {
+    public void genomeAnalysisServiceWithOptionalTestPathDao() throws Exception {
 
         String testPathogenicitySourcePath = TEST_DATA.resolve("remm/remmData.tsv.gz").toAbsolutePath().toString();
         load(EmptyConfiguration.class, TEST_DATA_ENV, "exomiser.hg19.data-version=1710", "exomiser.hg19.test-pathogenicity-score-path=" + testPathogenicitySourcePath);
@@ -71,5 +70,6 @@ public class Hg19GenomeAnalysisServiceAutoConfigurationTest extends AbstractAuto
 
     @Configuration
     @ImportAutoConfiguration(value = Hg19GenomeAnalysisServiceAutoConfiguration.class)
-    protected static class EmptyConfiguration {}
+    protected static class EmptyConfiguration {
+    }
 }

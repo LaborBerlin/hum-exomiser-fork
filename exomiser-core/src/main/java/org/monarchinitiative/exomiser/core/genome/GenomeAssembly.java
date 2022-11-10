@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,26 +20,78 @@
 
 package org.monarchinitiative.exomiser.core.genome;
 
+import org.monarchinitiative.svart.Contig;
+import org.monarchinitiative.svart.GenomicAssemblies;
+import org.monarchinitiative.svart.GenomicAssembly;
+
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static org.monarchinitiative.svart.SequenceRole.ASSEMBLED_MOLECULE;
 
 /**
- * genome reference assembly version - hg19/hg38.
+ * Genome reference assembly version - hg19/hg38.
  */
 public enum GenomeAssembly {
 
-    HG19("hg19"), HG38("hg38");
+    UNKNOWN("na", "na", "na", GenomicAssembly.of("", "", "", "", "", "", "", List.of())),
+
+    // GRCh37.p13:
+    // https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh37.p13
+    // Source: https://www.ncbi.nlm.nih.gov/assembly/GCF_000001405.13
+    // For gory details, see:
+    // ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.25_GRCh37.p13/GCF_000001405.25_GRCh37.p13_assembly_report.txt
+    HG19("hg19", "GRCh37", "GRCh37.p13", GenomicAssemblies.GRCh37p13()),
+
+    // GRCh38.p13:
+    // https://www.ncbi.nlm.nih.gov/grc/human/data?asm=GRCh38.p13
+    // https://www.ncbi.nlm.nih.gov/assembly/GCF_000001405.39
+    // For gory details, see:
+    // ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.39_GRCh38.p13/GCF_000001405.39_GRCh38.p13_assembly_report.txt
+    // grep 'assembled-molecule'
+    HG38("hg38", "GRCh38", "GRCh38.p13", GenomicAssemblies.GRCh38p13());
+
+    /**
+     * Returns the {@link GenomeAssembly} of the provided {@link Contig}. Note that the mitochondrial contig is identical
+     * in both assemblies so this function will always return 'HG19' in this case.
+     *
+     * @param contig
+     * @return The {@link GenomeAssembly} of the {@link Contig}
+     */
+    public static GenomeAssembly assemblyOfContig(Contig contig) {
+        if (HG19.containsContig(contig)) {
+            return HG19;
+        }
+        if (HG38.containsContig(contig)) {
+            return HG38;
+        }
+        return UNKNOWN;
+    }
 
     private final String value;
+    private final String grcValue;
 
-    GenomeAssembly(String value) {
+    private final String name;
+    private final GenomicAssembly genomicAssembly;
+    private final List<Contig> contigs;
+
+    GenomeAssembly(String value, String grcValue, String name, GenomicAssembly genomicAssembly) {
         this.value = value;
+        this.grcValue = grcValue;
+        this.name = name;
+        this.genomicAssembly = genomicAssembly;
+        this.contigs = genomicAssembly.contigs().stream()
+                // only want 1-25, X, Y, MT
+                .filter(contig -> contig.sequenceRole() == ASSEMBLED_MOLECULE)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     public static GenomeAssembly defaultBuild() {
         return GenomeAssembly.HG19;
     }
 
-    public static GenomeAssembly fromValue(String value) {
+    public static GenomeAssembly parseAssembly(String value) {
         Objects.requireNonNull(value, "Genome build cannot be null");
         switch (value.toLowerCase()) {
             case "hg19":
@@ -54,9 +106,51 @@ public enum GenomeAssembly {
         }
     }
 
+    public GenomicAssembly genomicAssembly() {
+        return genomicAssembly;
+    }
+
     @Override
     public String toString() {
         return value;
+    }
+
+    public String toGrcString() {
+        return grcValue;
+    }
+
+    // https://www.ncbi.nlm.nih.gov/genome/?term=txid9606[orgn]
+    // Returns the RefSeq id for the given chromosome number for the assembly.
+    public String getRefSeqAccession(int chr) {
+        return getContigById(chr).refSeqAccession();
+    }
+
+    public String getGenBankAccession(int chr) {
+        return getContigById(chr).genBankAccession();
+    }
+
+    public List<Contig> contigs() {
+        return contigs;
+    }
+
+    public String getName() {
+        return genomicAssembly.name();
+    }
+
+    public String refSeqAccession() {
+        return genomicAssembly.refSeqAccession();
+    }
+
+    public boolean containsContig(Contig contig) {
+        return genomicAssembly.containsContig(contig);
+    }
+
+    public Contig getContigById(int contigId) {
+        return genomicAssembly.contigById(contigId);
+    }
+
+    public Contig getContigByName(String contigName) {
+        return genomicAssembly.contigByName(contigName);
     }
 
     public static class InvalidGenomeAssemblyException extends RuntimeException {

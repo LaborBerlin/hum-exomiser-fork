@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -141,11 +141,27 @@ public enum InheritanceMode {
         }
     }
 
-    @Override
-    public String toString() {
-        return "InheritanceMode{" +
-                "hpoTerm='" + hpoTerm + '\'' +
-                ", inheritanceCode='" + inheritanceCode + '\'' +
-                "} " + super.toString();
+    public boolean isCompatibleWith(ModeOfInheritance modeOfInheritance) {
+        if (modeOfInheritance == ModeOfInheritance.ANY) {
+            return true;
+        }
+        switch (this) {
+            case AUTOSOMAL_DOMINANT:
+                return modeOfInheritance == ModeOfInheritance.AUTOSOMAL_DOMINANT;
+            case AUTOSOMAL_RECESSIVE:
+                return modeOfInheritance == ModeOfInheritance.AUTOSOMAL_RECESSIVE;
+            case AUTOSOMAL_DOMINANT_AND_RECESSIVE:
+                return modeOfInheritance == ModeOfInheritance.AUTOSOMAL_DOMINANT || modeOfInheritance == ModeOfInheritance.AUTOSOMAL_RECESSIVE;
+            case X_RECESSIVE:
+                return modeOfInheritance == ModeOfInheritance.X_RECESSIVE;
+            case X_DOMINANT:
+                return modeOfInheritance == ModeOfInheritance.X_DOMINANT;
+            case X_LINKED:
+                return modeOfInheritance == ModeOfInheritance.X_RECESSIVE || modeOfInheritance == ModeOfInheritance.X_DOMINANT;
+            case MITOCHONDRIAL:
+                return modeOfInheritance == ModeOfInheritance.MITOCHONDRIAL;
+            default:
+                return false;
+        }
     }
 }

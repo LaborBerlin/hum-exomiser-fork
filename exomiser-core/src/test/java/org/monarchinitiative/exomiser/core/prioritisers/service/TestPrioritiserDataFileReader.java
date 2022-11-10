@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@ import org.monarchinitiative.exomiser.core.prioritisers.model.GeneModel;
 import org.monarchinitiative.exomiser.core.prioritisers.model.GeneOrthologModel;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
@@ -62,7 +62,7 @@ public class TestPrioritiserDataFileReader {
         //FISH	ZDB-GENE-081119-4_3835	341640	HGNC:25396	ZDB-GENE-081119-4	frem2b	ZP:0004670,ZP:0004671,ZP:0004669
         return line -> {
             String[] fields = line.split("\t");
-            return new GeneOrthologModel(fields[1], Organism.valueOf(fields[0]), Integer.valueOf(fields[2]), fields[3], fields[4], fields[5], getOntologyTerms(fields[6]));
+            return new GeneOrthologModel(fields[1], Organism.valueOf(fields[0]), Integer.parseInt(fields[2]), fields[3], fields[4], fields[5], getOntologyTerms(fields[6]));
         };
     }
 
@@ -79,7 +79,7 @@ public class TestPrioritiserDataFileReader {
             String[] fields = line.split("\t");
             return Disease.builder().diseaseId(fields[3])
                     .diseaseName(fields[4])
-                    .associatedGeneId(Integer.valueOf(fields[1]))
+                    .associatedGeneId(Integer.parseInt(fields[1]))
                     .associatedGeneSymbol(fields[2])
                     .diseaseTypeCode(fields[5])
                     .inheritanceModeCode(fields[6])
@@ -100,7 +100,17 @@ public class TestPrioritiserDataFileReader {
         return line -> {
             String[] fields = line.split("\t");
             String modelId = fields[3] + "_" + fields[1];
-            return new GeneDiseaseModel(modelId, Organism.valueOf(fields[0]), Integer.valueOf(fields[1]), fields[2], fields[3], fields[4], getOntologyTerms(fields[7]));
+            Disease disease = Disease.builder()
+                    .diseaseId(modelId)
+                    .diseaseName(fields[3])
+                    .diseaseType(Disease.DiseaseType.code(fields[7]))
+                    .associatedGeneId(Integer.parseInt(fields[1]))
+                    .associatedGeneSymbol(fields[2])
+                    .inheritanceModeCode(fields[6])
+                    .phenotypeIds(getOntologyTerms(fields[7]))
+                    .build();
+            return new GeneDiseaseModel(modelId, Organism.valueOf(fields[0]), disease);
+//            return new GeneDiseaseModel(modelId, Organism.valueOf(fields[0]), Integer.valueOf(fields[1]), fields[2], fields[3], fields[4], getOntologyTerms(fields[7]));
         };
     }
 
@@ -127,19 +137,19 @@ public class TestPrioritiserDataFileReader {
                     .query(query)
                     .match(match)
                     .lcs(lcs)
-                    .ic(Double.valueOf(elements[8]))
-                    .simj(Double.valueOf(elements[9]))
-                    .score(Double.valueOf(elements[10]))
+                    .ic(Double.parseDouble(elements[8]))
+                    .simj(Double.parseDouble(elements[9]))
+                    .score(Double.parseDouble(elements[10]))
                     .build();
         };
     }
 
     private static Stream<String> readLines(String filePath) {
         try {
-            return Files.lines(Paths.get(filePath), Charset.forName("UTF-8"));
+            return Files.lines(Paths.get(filePath), StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
+        return Stream.empty();
     }
 }

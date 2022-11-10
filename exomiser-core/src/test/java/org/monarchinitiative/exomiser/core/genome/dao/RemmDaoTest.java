@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicityData;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.RemmScore;
@@ -63,11 +64,11 @@ public class RemmDaoTest {
         if (ref.equals("-") || alt.equals("-")) {
             //this is used to get round the fact that in real life the variant evaluation 
             //is built from a variantContext and some variantAnnotations
-            return VariantEvaluation.builder(chr, pos, ref, alt)
+            return TestFactory.variantBuilder(chr, pos, ref, alt)
                     .variantContext(Mockito.mock(VariantContext.class))
                     .build();
         }
-        return VariantEvaluation.builder(chr, pos, ref, alt)
+        return TestFactory.variantBuilder(chr, pos, ref, alt)
                 .variantEffect(VariantEffect.REGULATORY_REGION_VARIANT)
                 .build();
     }
@@ -75,7 +76,7 @@ public class RemmDaoTest {
     @Test
     public void testGetPathogenicityDataMissenseVariant() {
         //missense variants are by definition protein-coding and therefore cannot be non-coding so we expect nothing 
-        VariantEvaluation missenseVariant = VariantEvaluation.builder(1, 1, "A", "T")
+        VariantEvaluation missenseVariant = TestFactory.variantBuilder(1, 1, "A", "T")
                 .variantEffect(VariantEffect.MISSENSE_VARIANT)
                 .build();
         assertThat(instance.getPathogenicityData(missenseVariant), equalTo(PathogenicityData.empty()));
@@ -83,30 +84,37 @@ public class RemmDaoTest {
     
     @Test
     public void testGetPathogenicityDataSingleNucleotideVariationNoData() {
-        Mockito.when(remmTabixReader.query("1:1-1")).thenReturn(MockTabixIterator.empty());
+        Mockito.when(remmTabixReader.query(0, 0, 1)).thenReturn(MockTabixIterator.empty());
 
         assertThat(instance.getPathogenicityData(variant(1, 1, "A", "T")), equalTo(PathogenicityData.empty()));
     }
     
     @Test
     public void testGetPathogenicityDataSingleNucleotideVariation() {
-        Mockito.when(remmTabixReader.query("1:1-1")).thenReturn(MockTabixIterator.of("1\t1\t1.0"));
+        Mockito.when(remmTabixReader.query(0, 0, 1)).thenReturn(MockTabixIterator.of("1\t1\t1.0"));
 
         assertThat(instance.getPathogenicityData(variant(1, 1, "A", "T")), equalTo(PathogenicityData.of(RemmScore.of(1f))));
     }
     
     @Test
     public void testGetPathogenicityDataInsertion() {
-        Mockito.when(remmTabixReader.query("1:1-2")).thenReturn(MockTabixIterator.of("1\t1\t0.0", "1\t2\t1.0"));
+        Mockito.when(remmTabixReader.query(0, 0, 2)).thenReturn(MockTabixIterator.of("1\t1\t0.0", "1\t2\t1.0"));
 
         assertThat(instance.getPathogenicityData(variant(1, 1, "A", "ATTT")), equalTo(PathogenicityData.of(RemmScore.of(1f))));
     }
-    
+
     @Test
     public void testGetPathogenicityDataDeletion() {
         MockTabixIterator mockIterator = MockTabixIterator.of("1\t1\t0.0", "1\t2\t0.5", "1\t3\t1.0", "1\t4\t0.0");
-        Mockito.when(remmTabixReader.query("1:1-4")).thenReturn(mockIterator);
+        Mockito.when(remmTabixReader.query(0, 0, 4)).thenReturn(mockIterator);
 
         assertThat(instance.getPathogenicityData(variant(1, 1, "ATTT", "A")), equalTo(PathogenicityData.of(RemmScore.of(1f))));
+    }
+
+    @Test
+    public void testWithNoOpTabixDataSource() {
+        NoOpTabixDataSource noOpTabixDataSource = new NoOpTabixDataSource("REMM-hg38");
+        RemmDao instance = new RemmDao(noOpTabixDataSource);
+        assertThat(instance.getPathogenicityData(variant(1, 1, "ATTT", "A")), equalTo(PathogenicityData.of()));
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2022 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,6 @@ import org.monarchinitiative.exomiser.core.model.Variant;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -57,15 +56,15 @@ public class LocalFrequencyDao implements FrequencyDao {
     }
 
     private FrequencyData processResults(Variant variant) {
-        String chromosome = variant.getChromosomeName();
-        String ref = variant.getRef();
-        String alt = variant.getAlt();
-        int start = variant.getPosition();
+        String chromosome = variant.contigName();
+        String ref = variant.ref();
+        String alt = variant.alt();
+        int start = variant.start();
 
         return getPositionFrequencyData(chromosome, start, ref, alt);
     }
 
-    private FrequencyData getPositionFrequencyData(String chromosome, int start, String ref, String alt) {
+    private synchronized FrequencyData getPositionFrequencyData(String chromosome, int start, String ref, String alt) {
         //Local frequency file defined as tab-delimited lines in 'VCF-lite' format:
         //chr   pos ref alt freq(%)
         //1 12345   A   T   23.0  (an A->T SNP on chr1 at position 12345 with frequency of 23.0%)
@@ -74,7 +73,7 @@ public class LocalFrequencyDao implements FrequencyDao {
         //1 12345   AT   G   0.02  (an AT->G deletion on chr1 at position 12345 with frequency of 0.02%)
         //1 12345   T   .   0.03  (an T->. monomorphic site (no alt allele) on chr1 at position 12345 with frequency of 0.03%)
         try {
-            TabixReader.Iterator results = tabixDataSource.query(chromosome + ":" + start + "-" + start);
+            TabixReader.Iterator results = tabixDataSource.query(chromosome, start, start);
             String line;
             while ((line = results.next()) != null) {
                 String[] elements = line.split("\t");
@@ -93,6 +92,6 @@ public class LocalFrequencyDao implements FrequencyDao {
     private FrequencyData parseLocalFrequency(String frequencyInPercentField) {
         float value = Float.parseFloat(frequencyInPercentField);
         Frequency localFreq = Frequency.of(FrequencySource.LOCAL, value);
-        return FrequencyData.of(RsId.empty(), localFreq);
+        return FrequencyData.of(localFreq);
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,10 +19,12 @@
  */
 package org.monarchinitiative.exomiser.cli;
 
+import org.apache.commons.cli.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 
 import java.util.Locale;
 
@@ -32,15 +34,22 @@ import java.util.Locale;
  *
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 public class Main {
 
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        Locale.setDefault(Locale.UK);
-        logger.info("Locale set to {}", Locale.getDefault());
+        // Parse the input to check for help etc. in order to fail fast before launching the context.
+        // This does mean the input needs parsing twice - once here and again in the application CommandLineRunner.
+        CommandLine commandLine = CommandLineOptionsParser.parse(args);
+        if (commandLine.hasOption("help") || commandLine.getOptions().length == 0) {
+            CommandLineOptionsParser.printHelp();
+            System.exit(0);
+        }
 
+        // all ok so far - try launching the app
+        Locale.setDefault(Locale.UK);
         SpringApplication.run(Main.class, args).close();
 
         logger.info("Exomising finished - Bye!");

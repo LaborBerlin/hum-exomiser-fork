@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,9 +28,9 @@ import org.monarchinitiative.exomiser.data.genome.model.AlleleProperty;
 import java.util.Collections;
 import java.util.List;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
@@ -106,6 +106,18 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         expected.setRsId("rs72854879");
         expected.addValue(AlleleProperty.KG, 5.8710003f);
         expected.addValue(AlleleProperty.TOPMED, 8.51707f);
+
+        assertParseLineEquals(line, Collections.singletonList(expected));
+    }
+
+    @Test
+    public void testSingleAlleleSnpBuild155() {
+        String line = "NC_000016.9	2150254	rs147967021	G	A	.	.	RS=147967021;dbSNPBuildID=134;SSR=0;GENEINFO=PKD1:5310;VC=SNV;NSM;R3;GNO;FREQ=1000Genomes:0.9998,0.0001997|ExAC:0.9999,9.404e-05|GnomAD:1,4.989e-05|GnomAD_exomes:0.9999,0.0001088|TOPMED:0.9999,7.934e-05|dbGaP_PopFreq:0.9999,8.681e-05";
+
+        Allele expected = new Allele(16, 2150254, "G", "A");
+        expected.setRsId("rs147967021");
+        expected.addValue(AlleleProperty.KG, 0.01997f);
+        expected.addValue(AlleleProperty.TOPMED, 0.007934f);
 
         assertParseLineEquals(line, Collections.singletonList(expected));
     }
@@ -191,7 +203,6 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         assertThat(alleles.size(), equalTo(4));
         Allele allele1 = alleles.get(0);
 
-        System.out.println(allele1);
         assertThat(allele1.getChr(), equalTo(3));
         assertThat(allele1.getPos(), equalTo(134153617));
         assertThat(allele1.getRsId(), equalTo("rs56011117"));
@@ -200,7 +211,6 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         assertThat(allele1.getValue(AlleleProperty.KG), equalTo(0.4992f));
 
         Allele allele2 = alleles.get(1);
-        System.out.println(allele2);
         assertThat(allele2.getChr(), equalTo(3));
         assertThat(allele2.getPos(), equalTo(134153617));
         assertThat(allele2.getRsId(), equalTo("rs56011117"));
@@ -210,7 +220,6 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
 
         Allele allele3 = alleles.get(2);
 
-        System.out.println(allele3);
         assertThat(allele3.getChr(), equalTo(3));
         assertThat(allele3.getPos(), equalTo(134153617));
         assertThat(allele3.getRsId(), equalTo("rs56011117"));
@@ -219,7 +228,6 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         assertThat(allele3.getValues().isEmpty(), is(true));
 
         Allele allele4 = alleles.get(3);
-        System.out.println(allele4);
         assertThat(allele4.getChr(), equalTo(3));
         assertThat(allele4.getPos(), equalTo(134153617));
         assertThat(allele4.getRsId(), equalTo("rs56011117"));
@@ -272,6 +280,25 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         assertParseLineEquals(line, ImmutableList.of(allele1, allele2));
     }
 
+    @Test
+    void testBuild152FormatMultiAlleleCafAndTopMedMixedRepresentation() {
+        String line = "" +
+                "NC_000001.10\t9974103\trs527824753\tA\tC,T\t.\t.\tRS=527824753;dbSNPBuildID=142;SSR=0;VC=SNV;GNO;FREQ=1000Genomes:0.9996,0.0003994,.|ALSPAC:0.9997,0.0002595,.|GnomAD:0.9999,0.0001279,.|TOPMED:0.9997,0.0002389,5.575e-05|TWINSUK:0.9989,0.001079,.";
+
+        Allele allele1 = new Allele(1, 9974103, "A", "C");
+        allele1.setRsId("rs527824753");
+        allele1.addValue(AlleleProperty.KG, 0.03994f);
+        allele1.addValue(AlleleProperty.TOPMED, 0.02389f);
+//        allele1.addValue(AlleleProperty.ALSPAC, 0.02595f);
+//        allele1.addValue(AlleleProperty.TWINSUK, 0.10789999f);
+
+        Allele allele2 = new Allele(1, 9974103, "A", "T");
+        allele2.setRsId("rs527824753");
+        allele2.addValue(AlleleProperty.TOPMED, 0.005575f);
+
+        assertParseLineEquals(line, ImmutableList.of(allele1, allele2));
+    }
+
 
     @Test
     public void testMitochondrialSnp() {
@@ -282,7 +309,6 @@ public class DbSnpAlleleParserTest extends AbstractAlleleParserTester<DbSnpAllel
         assertThat(alleles.size(), equalTo(1));
         Allele allele = alleles.get(0);
 
-        System.out.println(allele);
         assertThat(allele.getChr(), equalTo(25));
         assertThat(allele.getPos(), equalTo(15061));
         assertThat(allele.getRsId(), equalTo("rs527236205"));

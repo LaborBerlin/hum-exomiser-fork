@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -37,72 +37,124 @@ import java.util.Objects;
  * 1. it has no common nucleotides on the left or right side
  * 2. each allele does not end with the same type of nucleotide, or the shortest allele has length 1
  *
+ * @deprecated To be replaced by {@link org.monarchinitiative.svart.util.VariantTrimmer.VariantPosition}
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
+@Deprecated(forRemoval = true)
 public class AllelePosition {
 
-    private final int pos;
+    private final int start;
     private final String ref;
     private final String alt;
 
+    private AllelePosition(int start, String ref, String alt) {
+        this.start = start;
+        this.ref = ref;
+        this.alt = alt;
+    }
+
     /**
-     * @param pos
+     * @param start
      * @param ref
      * @param alt
      * @return an exact representation of the input coordinates.
      */
-    public static AllelePosition of(int pos, String ref, String alt) {
+    public static AllelePosition of(int start, String ref, String alt) {
         Objects.requireNonNull(ref, "REF string cannot be null");
         Objects.requireNonNull(alt, "ALT string cannot be null");
-        return new AllelePosition(pos, ref, alt);
+        return new AllelePosition(start, ref, alt);
     }
 
     /**
-     * Trims the right, then left side of the given variant allele.
+     * Given a single allele from a multi-positional site, incoming variants might not be fully trimmed.
+     * In cases where there is repetition, depending on the program used, the final variant allele will be different.
+     * VCF:      X-118887583-TCAAAA-TCAAAACAAAA
+     * Exomiser: X-118887583-T     -TCAAAA
+     * CellBase: X-118887584--     - CAAAA
+     * Jannovar: X-118887588-      -      CAAAA
+     * Nirvana:  X-118887589-      -      CAAAA
+     * <p>
+     * Trimming first with Exomiser, then annotating with Jannovar, constrains the Jannovar annotation to the same
+     * position as Exomiser.
+     * VCF:      X-118887583-TCAAAA-TCAAAACAAAA
+     * Exomiser: X-118887583-T     -TCAAAA
+     * CellBase: X-118887584--     - CAAAA
+     * Jannovar: X-118887583-      - CAAAA      (Jannovar is zero-based)
+     * Nirvana:  X-118887584-      - CAAAA
+     * <p>
+     * Cellbase:
+     * https://github.com/opencb/biodata/blob/develop/biodata-tools/src/main/java/org/opencb/biodata/tools/variant/VariantNormalizer.java
+     * http://bioinfo.hpc.cam.ac.uk/cellbase/webservices/rest/v4/hsapiens/genomic/variant/X:118887583:TCAAAA:TCAAAACAAAA/annotation?assembly=grch37&limit=-1&skip=-1&count=false&Output format=json&normalize=true
+     * <p>
+     * Nirvana style trimming:
+     * https://github.com/Illumina/Nirvana/blob/master/VariantAnnotation/Algorithms/BiDirectionalTrimmer.cs
+     * <p>
+     * Jannovar:
+     * https://github.com/charite/jannovar/blob/master/jannovar-core/src/main/java/de/charite/compbio/jannovar/reference/VariantDataCorrector.java
      *
-     * @param pos
-     * @param ref
-     * @param alt
+     * @param start 1-based start position of the first base of the ref string
+     * @param ref   reference base(s)
+     * @param alt   alternate bases
      * @return a minimised representation of the input coordinates.
      */
-    public static AllelePosition trim(int pos, String ref, String alt) {
+    public static AllelePosition trim(int start, String ref, String alt) {
         Objects.requireNonNull(ref, "REF string cannot be null");
         Objects.requireNonNull(alt, "ALT string cannot be null");
 
+//        if (cantTrim(ref, alt) || isSymbolic(ref, alt)) {
         if (cantTrim(ref, alt)) {
-            return new AllelePosition(pos, ref, alt);
+            return new AllelePosition(start, ref, alt);
         }
+
+        // copy these here in order not to change input params
+        int trimStart = start;
+        String trimRef = ref;
+        String trimAlt = alt;
 
         // Can't do left alignment as have no reference seq and are assuming this has happened already.
         // Therefore check the sequence is first right trimmed, then left trimmed as per the wiki link above.
-        if (needsRightTrim(ref, alt)) {
-            int rightIdx = ref.length();
-            int diff = ref.length() - alt.length();
+        if (canRightTrim(trimRef, trimAlt)) {
+            int rightIdx = trimRef.length();
+            int diff = trimRef.length() - trimAlt.length();
             // scan from right to left, ensure right index > 1 so as not to fall off the left end
-            while (rightIdx > 1 && rightIdx - diff > 0 && ref.charAt(rightIdx - 1) == alt.charAt(rightIdx - 1 - diff)) {
+            while (rightIdx > 1 && rightIdx - diff > 1 && trimRef.charAt(rightIdx - 1) == trimAlt.charAt(rightIdx - 1 - diff)) {
                 rightIdx--;
             }
 
-            ref = ref.substring(0, rightIdx);
-            alt = alt.substring(0, rightIdx - diff);
+            trimRef = trimRef.substring(0, rightIdx);
+            trimAlt = trimAlt.substring(0, rightIdx - diff);
         }
 
-        if (needsLeftTrim(ref, alt)) {
+        if (canLeftTrim(trimRef, trimAlt)) {
             int leftIdx = 0;
             // scan from left to right
-            while (leftIdx < ref.length() && leftIdx < alt.length() && ref.charAt(leftIdx) == alt.charAt(leftIdx)) {
+            while (leftIdx < trimRef.length() && leftIdx < trimAlt.length() && trimRef.charAt(leftIdx) == trimAlt.charAt(leftIdx)) {
                 leftIdx++;
             }
             // correct index so as not to fall off the right end
-            if (leftIdx > 0 && leftIdx == ref.length() || leftIdx == alt.length()) {
+            if (leftIdx > 0 && leftIdx == trimRef.length() || leftIdx == trimAlt.length()) {
                 leftIdx -= 1;
             }
-            pos += leftIdx;
-            ref = ref.substring(leftIdx);
-            alt = alt.substring(leftIdx);
+            trimStart += leftIdx;
+            trimRef = trimRef.substring(leftIdx);
+            trimAlt = trimAlt.substring(leftIdx);
         }
 
-        return new AllelePosition(pos, ref, alt);
+        return new AllelePosition(trimStart, trimRef, trimAlt);
+    }
+
+    private static boolean cantTrim(String ref, String alt) {
+        return ref.length() == 1 || alt.length() == 1;
+    }
+
+    private static boolean canRightTrim(String ref, String alt) {
+        int refLength = ref.length();
+        int altLength = alt.length();
+        return refLength > 1 && altLength > 1 && ref.charAt(refLength - 1) == alt.charAt(altLength - 1);
+    }
+
+    private static boolean canLeftTrim(String ref, String alt) {
+        return ref.length() > 1 && alt.length() > 1 && ref.charAt(0) == alt.charAt(0);
     }
 
     public static boolean isSnv(String ref, String alt) {
@@ -130,44 +182,93 @@ public class AllelePosition {
         return isSymbolic(alt) || isSymbolic(ref);
     }
 
-    private static boolean isSymbolic(String allele) {
-        // shamelessly copied from HTSJDK Allele via Jannovar
-        if (allele.length() <= 1)
+    public static boolean isSymbolic(String allele) {
+        if (allele.isEmpty()) {
             return false;
-        return (allele.charAt(0) == '<' || allele.charAt(allele.length() - 1) == '>') || // symbolic or large insertion
-                (allele.charAt(0) == '.' || allele.charAt(allele.length() - 1) == '.') || // single breakend
-                (allele.contains("[") || allele.contains("]")); // mated breakend
+        }
+        return isLargeSymbolic(allele) || isSingleBreakend(allele) || isMatedBreakend(allele);
     }
 
-    private static boolean cantTrim(String ref, String alt) {
-        return ref.length() == 1 || alt.length() == 1;
+    public static boolean isBreakend(String allele) {
+        return isSingleBreakend(allele) || isMatedBreakend(allele);
     }
 
-    private static boolean needsRightTrim(String ref, String alt) {
-        int refLength = ref.length();
-        int altLength = alt.length();
-        return refLength > 1 && altLength > 1 && ref.charAt(refLength - 1) == alt.charAt(altLength - 1);
+    private static boolean isLargeSymbolic(String allele) {
+        return allele.length() > 1 && allele.charAt(0) == '<' || allele.charAt(allele.length() - 1) == '>';
     }
 
-    private static boolean needsLeftTrim(String ref, String alt) {
-        return ref.length() > 1 && alt.length() > 1 && ref.charAt(0) == alt.charAt(0);
+    public static boolean isSingleBreakend(String allele) {
+        return allele.length() > 1 && allele.charAt(0) == '.' || allele.charAt(allele.length() - 1) == '.';
     }
 
-    private AllelePosition(int pos, String ref, String alt) {
-        this.pos = pos;
-        this.ref = ref;
-        this.alt = alt;
+    public static boolean isMatedBreakend(String allele) {
+        return allele.length() > 1 && (allele.contains("[") || allele.contains("]"));
     }
 
-    public int getPos() {
-        return pos;
+    /**
+     * Re
+     * @param ref
+     * @param alt
+     * @return
+     */
+    public static int length(String ref, String alt) {
+        return ref.length();
+
+        // Quote VCF 4.3 SV info
+        // "LEN - For precise variants, LEN is length of REF allele, and the for imprecise variants the corresponding best estimate."
+        // "SVLEN - Difference in length between REF and ALT alleles. Longer ALT alleles (e.g. insertions) have positive values,
+        // shorter ALT alleles (e.g. deletions) have negative values."
+        // ##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of the variant described in this record">
+        // ##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">
+        // #CHROM POS     ID        REF              ALT          QUAL FILTER INFO                                                               FORMAT       NA00001
+        // 1      2827694 rs2376870 CGTGGATGCGGGGAC  C            .    PASS   SVTYPE=DEL;LEN=15;HOMLEN=1;HOMSEQ=G;SVLEN=-14                 GT:GQ        1/1:14
+        // 2       321682 .         T                <DEL>        6    PASS   SVTYPE=DEL;LEN=206;SVLEN=-205;CIPOS=-56,20;CIEND=-10,62         GT:GQ        0/1:12
+        // 2     14477084 .         C                <DEL:ME:ALU> 12   PASS   SVTYPE=DEL;LEN=298;SVLEN=-297;CIPOS=-22,18;CIEND=-12,32       GT:GQ        0/1:12
+        // 3      9425916 .         C                <INS:ME:L1>  23   PASS   SVTYPE=INS;LEN=1;SVLEN=6027;CIPOS=-16,22                     GT:GQ        1/1:15
+        // 3     12665100 .         A                <DUP>        14   PASS   SVTYPE=DUP;LEN=21101;SVLEN=21100;CIPOS=-500,500;CIEND=-500,500  GT:GQ:CN:CNQ ./.:0:3:16.2
+        // 4     18665128 .         T                <DUP:TANDEM> 11   PASS   SVTYPE=DUP;LEN=77;SVLEN=76;CIPOS=-10,10;CIEND=-10,10         GT:GQ:CN:CNQ ./.:0:5:8.3
+        // TODO: should this be reflected in a refLength and varLength ?
+//        if (isSymbolic(ref, alt)) {
+//            return ref.length();
+//        }
+//        // SNV/MNV substitution case e.g. ATGC -> CGAT length = 4
+//        if (alt.length() == ref.length()) {
+//            return ref.length();
+//        }
+//        // indel case
+//        return alt.length() - ref.length();
     }
 
-    public String getRef() {
+    /**
+     * @return 1-based inclusive start position of the allele
+     */
+    public int start() {
+        return start;
+    }
+
+    /**
+     * VCF 4.3 spec defines 'For precise variants, END is POS + length of REF allele−1, and for imprecise variants
+     * the corresponding best estimate.'
+     *
+     * @return 1-based closed end position of the allele
+     */
+    public int end() {
+        return start + Math.max(ref.length() - 1, 0);
+    }
+
+    public int length() {
+        return ref.length();
+    }
+
+    public int changeLength() {
+        return alt.length() - ref.length();
+    }
+
+    public String ref() {
         return ref;
     }
 
-    public String getAlt() {
+    public String alt() {
         return alt;
     }
 
@@ -175,27 +276,33 @@ public class AllelePosition {
         return isSymbolic(ref, alt);
     }
 
+    public boolean isBreakend() {
+        return isBreakend(alt);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AllelePosition that = (AllelePosition) o;
-        return pos == that.pos &&
+        return start == that.start &&
                 Objects.equals(ref, that.ref) &&
                 Objects.equals(alt, that.alt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(pos, ref, alt);
+        return Objects.hash(start, ref, alt);
     }
 
     @Override
     public String toString() {
         return "AllelePosition{" +
-                "pos=" + pos +
+                "start=" + start +
+                ", end=" + end() +
                 ", ref='" + ref + '\'' +
                 ", alt='" + alt + '\'' +
+                ", changeLength=" + changeLength() +
                 '}';
     }
 

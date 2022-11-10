@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,14 +21,18 @@
 package org.monarchinitiative.exomiser.core.prioritisers;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.Maps;
+import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
+import org.monarchinitiative.exomiser.core.phenotype.ModelPhenotypeMatch;
+import org.monarchinitiative.exomiser.core.phenotype.Organism;
 import org.monarchinitiative.exomiser.core.phenotype.PhenotypeMatch;
 import org.monarchinitiative.exomiser.core.phenotype.PhenotypeTerm;
+import org.monarchinitiative.exomiser.core.prioritisers.model.Disease;
 import org.monarchinitiative.exomiser.core.prioritisers.model.GeneDiseaseModel;
 import org.monarchinitiative.exomiser.core.prioritisers.model.GeneModelPhenotypeMatch;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import javax.annotation.Nullable;
+import java.util.*;
 import java.util.function.Function;
 
 import static java.util.stream.Collectors.toMap;
@@ -39,16 +43,16 @@ import static java.util.stream.Collectors.toMap;
  */
 public class HiPhivePriorityResult extends AbstractPriorityResult {
 
-    private double humanScore = 0;
-    private double mouseScore = 0;
-    private double fishScore = 0;
-
     private final double ppiScore;
 
     private final boolean candidateGeneMatch;
 
     private final List<PhenotypeTerm> queryPhenotypeTerms;
-    private final List<GeneModelPhenotypeMatch> phenotypeEvidence;
+    private final Map<Organism, GeneModelPhenotypeMatch> phenotypeEvidence;
+
+    private final List<GeneModelPhenotypeMatch> diseaseMatches;
+    private final Map<ModeOfInheritance, List<ModelPhenotypeMatch<Disease>>> diseaseMatchesByMoi;
+
     private final List<GeneModelPhenotypeMatch> ppiEvidence;
 
 
@@ -57,34 +61,102 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
      */
     public HiPhivePriorityResult(int geneId, String geneSymbol, double score, List<PhenotypeTerm> queryPhenotypeTerms, List<GeneModelPhenotypeMatch> phenotypeEvidence, List<GeneModelPhenotypeMatch> ppiEvidence, double ppiScore, boolean candidateGeneMatch) {
         super(PriorityType.HIPHIVE_PRIORITY, geneId, geneSymbol, score);
-        this.queryPhenotypeTerms = queryPhenotypeTerms;
-        setPhenotypeEvidenceScores(phenotypeEvidence);
+        this.queryPhenotypeTerms = Objects.requireNonNullElse(queryPhenotypeTerms, List.of());
+        Objects.requireNonNull(phenotypeEvidence);
+        this.phenotypeEvidence = getTopScoringModels(phenotypeEvidence);
+        this.diseaseMatches = getDiseaseMatches(phenotypeEvidence);
+//        interface ModelMatch<T extends Model> extends Comparable<ModelPhenotypeMatch<?>>
+//        final class ModelPhenotypeMatch<T extends Model> implements ModelMatch<Model>
+//        abstract class GeneModelPhenotypeMatch<T extends GeneModel> implements ModelMatch<T>
+//        class OrthologModelPhenotypeMatch extends GeneModelPhenotypeMatch<GeneModel>
+//        class DiseaseModelPhenotypeMatch extends GeneModelPhenotypeMatch<Disease>
+        this.diseaseMatchesByMoi = mapDiseaseModelsByMoi(this.diseaseMatches);
 
-        this.phenotypeEvidence = phenotypeEvidence;
         this.ppiEvidence = ppiEvidence;
         this.ppiScore = ppiScore;
-        
+
         this.candidateGeneMatch = candidateGeneMatch;
     }
 
-    private void setPhenotypeEvidenceScores(List<GeneModelPhenotypeMatch> phenotypeEvidence) {
-        if (phenotypeEvidence != null) {
-            for (GeneModelPhenotypeMatch model : phenotypeEvidence) {
-                switch (model.getOrganism()) {
-                    case HUMAN:
-                        humanScore = model.getScore();
-                        break;
-                    case MOUSE:
-                        mouseScore = model.getScore();
-                        break;
-                    case FISH:
-                        fishScore = model.getScore();
-                        break;
+    private Map<Organism, GeneModelPhenotypeMatch> getTopScoringModels(List<GeneModelPhenotypeMatch> phenotypeEvidence) {
+        Map<Organism, GeneModelPhenotypeMatch> topScoringModels = new EnumMap<>(Organism.class);
+        for (Organism organism : Organism.values()) {
+            topScoringModels.compute(organism, (k, v) -> getBestMatchForOrganism(phenotypeEvidence, organism));
+        }
+        return Collections.unmodifiableMap(topScoringModels);
+    }
+
+    private List<GeneModelPhenotypeMatch> getDiseaseMatches(List<GeneModelPhenotypeMatch> phenotypeEvidence) {
+        List<GeneModelPhenotypeMatch> toSort = new ArrayList<>();
+        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence) {
+            if (geneModelPhenotypeMatch.getOrganism() == Organism.HUMAN) {
+                toSort.add(geneModelPhenotypeMatch);
+            }
+        }
+        toSort.sort(Comparator.comparing(GeneModelPhenotypeMatch::getScore).reversed());
+        return List.copyOf(toSort);
+    }
+
+    private Map<ModeOfInheritance, List<ModelPhenotypeMatch<Disease>>> mapDiseaseModelsByMoi(List<GeneModelPhenotypeMatch> diseaseMatches) {
+        Map<ModeOfInheritance, List<ModelPhenotypeMatch<Disease>>> diseaseModelsMoi = new EnumMap<>(ModeOfInheritance.class);
+        for (GeneModelPhenotypeMatch diseasePhenotypeMatch : diseaseMatches) {
+            GeneDiseaseModel geneDiseaseModel = (GeneDiseaseModel) diseasePhenotypeMatch.getModel();
+            Disease disease = geneDiseaseModel.getDisease();
+            // permissive - will add any disease with unknown or compatible MOI
+//            InheritanceMode inheritanceMode = disease.getInheritanceMode();
+//            for (ModeOfInheritance moi : ModeOfInheritance.values()) {
+//                if (inheritanceMode.isCompatibleWith(moi) || inheritanceMode == InheritanceMode.UNKNOWN) {
+//                    if (diseaseModelsMoi.containsKey(moi)) {
+//                        diseaseModelsMoi.get(moi).add(toModelPhenotypeMatch(diseasePhenotypeMatch));
+//                    } else {
+//                        ArrayList<ModelPhenotypeMatch<Disease>> matches = new ArrayList<>();
+//                        matches.add(toModelPhenotypeMatch(diseasePhenotypeMatch));
+//                        diseaseModelsMoi.put(moi, matches);
+//                    }
+//                }
+//            }
+            // strict - will only add disease with known and compatible MOI
+            Set<ModeOfInheritance> modesOfInheritance = copyWithAnyMoi(disease.getInheritanceMode().toModeOfInheritance());
+            ModelPhenotypeMatch<Disease> diseaseModelPhenotypeMatch = toModelPhenotypeMatch(diseasePhenotypeMatch);
+            for (ModeOfInheritance moi : modesOfInheritance) {
+                if (diseaseModelsMoi.containsKey(moi)) {
+                    diseaseModelsMoi.get(moi).add(diseaseModelPhenotypeMatch);
+                } else {
+                    List<ModelPhenotypeMatch<Disease>> matches = new ArrayList<>();
+                    matches.add(diseaseModelPhenotypeMatch);
+                    diseaseModelsMoi.put(moi, matches);
                 }
             }
         }
+        return Maps.immutableEnumMap(diseaseModelsMoi);
     }
 
+    private Set<ModeOfInheritance> copyWithAnyMoi(Set<ModeOfInheritance> modesOfInheritance) {
+        Set<ModeOfInheritance> withAny = EnumSet.of(ModeOfInheritance.ANY);
+        withAny.addAll(modesOfInheritance);
+        return withAny;
+    }
+
+    private ModelPhenotypeMatch<Disease> toModelPhenotypeMatch(GeneModelPhenotypeMatch diseasePhenotypeMatch) {
+        GeneDiseaseModel geneDiseaseModel = (GeneDiseaseModel) diseasePhenotypeMatch.getModel();
+        return ModelPhenotypeMatch.of(diseasePhenotypeMatch.getScore(), geneDiseaseModel.getDisease(), diseasePhenotypeMatch.getBestModelPhenotypeMatches());
+    }
+
+    @Nullable
+    private GeneModelPhenotypeMatch getBestMatchForOrganism(List<GeneModelPhenotypeMatch> phenotypeEvidence, Organism organism) {
+        double bestScore = 0;
+        GeneModelPhenotypeMatch bestMatch = null;
+        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence) {
+            if (geneModelPhenotypeMatch.getOrganism() == organism) {
+                double matchScore = geneModelPhenotypeMatch.getScore();
+                if (Double.compare(matchScore, bestScore) > 0) {
+                    bestScore = matchScore;
+                    bestMatch = geneModelPhenotypeMatch;
+                }
+            }
+        }
+        return bestMatch;
+    }
 
     @Override
     public String getGeneSymbol() {
@@ -101,7 +173,15 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
     }
 
     public List<GeneModelPhenotypeMatch> getPhenotypeEvidence() {
-        return phenotypeEvidence;
+        return List.copyOf(phenotypeEvidence.values());
+    }
+
+    public List<GeneModelPhenotypeMatch> getDiseaseMatches() {
+        return diseaseMatches;
+    }
+
+    public List<ModelPhenotypeMatch<Disease>> getCompatibleDiseaseMatches(ModeOfInheritance modeOfInheritance) {
+        return diseaseMatchesByMoi.getOrDefault(modeOfInheritance, List.of());
     }
 
     public List<GeneModelPhenotypeMatch> getPpiEvidence() {
@@ -109,15 +189,20 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
     }
 
     public double getHumanScore() {
-        return humanScore;
+        return getScoreForOrganism(Organism.HUMAN);
     }
 
     public double getMouseScore() {
-        return mouseScore;
+        return getScoreForOrganism(Organism.MOUSE);
     }
 
     public double getFishScore() {
-        return fishScore;
+        return getScoreForOrganism(Organism.FISH);
+    }
+
+    private double getScoreForOrganism(Organism organism) {
+        GeneModelPhenotypeMatch geneModelPhenotypeMatch = phenotypeEvidence.get(organism);
+        return geneModelPhenotypeMatch == null ? 0d : geneModelPhenotypeMatch.getScore();
     }
 
     public double getPpiScore() {
@@ -137,7 +222,7 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
         StringBuilder mouseBuilder = new StringBuilder();
         StringBuilder fishBuilder = new StringBuilder();
 
-        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence) {
+        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence.values()) {
             Map<PhenotypeTerm, PhenotypeMatch> bestMatchesForModel = getPhenotypeTermPhenotypeMatchMap(geneModelPhenotypeMatch);
             switch (geneModelPhenotypeMatch.getOrganism()) {
                 case HUMAN:
@@ -203,7 +288,7 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
     public String getHTMLCode() {
         StringBuilder stringBuilder = new StringBuilder();
 
-        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence) {
+        for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : phenotypeEvidence.values()) {
             switch (geneModelPhenotypeMatch.getOrganism()) {
                 case HUMAN:
                     GeneDiseaseModel geneDiseaseModel = (GeneDiseaseModel) geneModelPhenotypeMatch.getModel();
@@ -226,7 +311,7 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
         }
 
         for (GeneModelPhenotypeMatch geneModelPhenotypeMatch : ppiEvidence) {
-            String stringDbLink = "http://string-db.org/newstring_cgi/show_network_section.pl?identifiers=" + geneSymbol + "%0D" + geneModelPhenotypeMatch
+            String stringDbLink = "http://version10.string-db.org/newstring_cgi/show_network_section.pl?identifiers=" + geneSymbol + "%0D" + geneModelPhenotypeMatch
                     .getHumanGeneSymbol() + "&required_score=700&network_flavor=evidence&species=9606&limit=20";
 
             switch (geneModelPhenotypeMatch.getOrganism()) {
@@ -297,16 +382,12 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         HiPhivePriorityResult that = (HiPhivePriorityResult) o;
-        return Double.compare(that.humanScore, humanScore) == 0 &&
-                Double.compare(that.mouseScore, mouseScore) == 0 &&
-                Double.compare(that.fishScore, fishScore) == 0 &&
-                Double.compare(that.ppiScore, ppiScore) == 0 &&
-                candidateGeneMatch == that.candidateGeneMatch;
+        return Double.compare(that.ppiScore, ppiScore) == 0 && candidateGeneMatch == that.candidateGeneMatch && queryPhenotypeTerms.equals(that.queryPhenotypeTerms) && phenotypeEvidence.equals(that.phenotypeEvidence);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), humanScore, mouseScore, fishScore, ppiScore, candidateGeneMatch);
+        return Objects.hash(super.hashCode(), ppiScore, candidateGeneMatch, queryPhenotypeTerms, phenotypeEvidence);
     }
 
     @Override
@@ -315,13 +396,13 @@ public class HiPhivePriorityResult extends AbstractPriorityResult {
                 "geneId=" + geneId +
                 ", geneSymbol='" + geneSymbol + '\'' +
                 ", score=" + score +
-                ", humanScore=" + humanScore +
-                ", mouseScore=" + mouseScore +
-                ", fishScore=" + fishScore +
+                ", humanScore=" + getHumanScore() +
+                ", mouseScore=" + getMouseScore() +
+                ", fishScore=" + getFishScore() +
                 ", ppiScore=" + ppiScore +
                 ", candidateGeneMatch=" + candidateGeneMatch +
                 ", queryPhenotypeTerms=" + queryPhenotypeTerms +
-                ", phenotypeEvidence=" + phenotypeEvidence +
+                ", phenotypeEvidence=" + phenotypeEvidence.values() +
                 ", ppiEvidence=" + ppiEvidence +
                 '}';
     }

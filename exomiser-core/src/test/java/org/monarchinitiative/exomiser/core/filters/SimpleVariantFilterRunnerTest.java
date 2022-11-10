@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@ package org.monarchinitiative.exomiser.core.filters;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.genome.TestVariantDataService;
 import org.monarchinitiative.exomiser.core.genome.VariantDataService;
 import org.monarchinitiative.exomiser.core.model.Variant;
@@ -35,7 +36,6 @@ import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.frequency.Frequency;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencyData;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
-import org.monarchinitiative.exomiser.core.model.frequency.RsId;
 
 import java.util.*;
 
@@ -51,9 +51,7 @@ import static org.monarchinitiative.exomiser.core.filters.FilterType.*;
 public class SimpleVariantFilterRunnerTest {
 
     private SimpleVariantFilterRunner instance;
-    
-    private VariantDataService variantDataService;
-    
+
     //Frequency run data
     private VariantFilter frequencyFilter;
     
@@ -77,38 +75,40 @@ public class SimpleVariantFilterRunnerTest {
     @BeforeEach
     public void setUp() {
 
-        passesAllFilters = VariantEvaluation.builder(1, 1, "A", "T")
+        passesAllFilters = TestFactory.variantBuilder(1, 1, "A", "T")
                 .quality(PASS_QUALITY)
                 .variantEffect(PASS_VARIANT_EFFECT)
                 .build();
-        failsAllFilters = VariantEvaluation.builder(2, 2, "A", "T")
+        failsAllFilters = TestFactory.variantBuilder(2, 2, "A", "T")
                 .quality(FAIL_QUALITY)
                 .variantEffect(FAIL_VARIANT_EFFECT)
                 .build();
-        passesQualityFrequencyFilter = VariantEvaluation.builder(3, 3, "A", "T")
+        passesQualityFrequencyFilter = TestFactory.variantBuilder(3, 3, "A", "T")
                 .quality(PASS_QUALITY)
                 .variantEffect(FAIL_VARIANT_EFFECT)
                 .build();
-        passesTargetQualityFilter = VariantEvaluation.builder(4, 4, "A", "T")
+        passesTargetQualityFilter = TestFactory.variantBuilder(4, 4, "A", "T")
                 .quality(PASS_QUALITY)
                 .variantEffect(PASS_VARIANT_EFFECT)
                 .build();
 
-        variantEvaluations = Arrays.asList(passesAllFilters, 
-                                           failsAllFilters, 
-                                           passesQualityFrequencyFilter, 
-                                           passesTargetQualityFilter);
+        variantEvaluations = Arrays.asList(passesAllFilters,
+                failsAllFilters,
+                passesQualityFrequencyFilter,
+                passesTargetQualityFilter);
 
-        variantDataService = TestVariantDataService.builder().expectedFrequencyData(mockFrequencyData()).build();
-        
+        VariantDataService variantDataService = TestVariantDataService.builder()
+                .expectedFrequencyData(mockFrequencyData())
+                .build();
+
         frequencyFilter = new FrequencyDataProvider(variantDataService, EnumSet.of(FrequencySource.UNKNOWN), new FrequencyFilter(1f));
-        
+
         instance = new SimpleVariantFilterRunner();
     }
 
     private Map<Variant, FrequencyData> mockFrequencyData() {
-        FrequencyData passFrequency = FrequencyData.of(RsId.of(12345), Frequency.of(FrequencySource.UNKNOWN, 0.01f));
-        FrequencyData failFrequency = FrequencyData.of(RsId.of(54321), Frequency.of(FrequencySource.UNKNOWN, 100f));
+        FrequencyData passFrequency = FrequencyData.of("rs12345", Frequency.of(FrequencySource.UNKNOWN, 0.01f));
+        FrequencyData failFrequency = FrequencyData.of("rs54321", Frequency.of(FrequencySource.UNKNOWN, 100f));
 
         Map<Variant, FrequencyData> frequecyData = new HashMap<>();
         frequecyData.put(passesAllFilters, passFrequency);
@@ -153,20 +153,20 @@ public class SimpleVariantFilterRunnerTest {
 
         filters.forEach(filter -> instance.run(filter, variantEvaluations));
 
-        printVariantFilterStatus("passesAllFilters", passesAllFilters);
+//        printVariantFilterStatus("passesAllFilters", passesAllFilters);
         assertThat(passesAllFilters.passedFilters(), is(true));
         assertPassedFilters(passesAllFilters, VARIANT_EFFECT_FILTER, QUALITY_FILTER, FREQUENCY_FILTER);
 
-        printVariantFilterStatus("failsAllFilters", failsAllFilters);
+//        printVariantFilterStatus("failsAllFilters", failsAllFilters);
         assertThat(failsAllFilters.passedFilters(), is(false));
         assertFailedFilters(failsAllFilters, VARIANT_EFFECT_FILTER, QUALITY_FILTER, FREQUENCY_FILTER);
 
-        printVariantFilterStatus("passesQualityFrequencyFilter", passesQualityFrequencyFilter);
+//        printVariantFilterStatus("passesQualityFrequencyFilter", passesQualityFrequencyFilter);
         assertThat(passesQualityFrequencyFilter.passedFilters(), is(false));
         assertPassedFilters(passesQualityFrequencyFilter, QUALITY_FILTER, FREQUENCY_FILTER);
         assertFailedFilters(passesQualityFrequencyFilter, VARIANT_EFFECT_FILTER);
 
-        printVariantFilterStatus("passesTargetQualityFilter", passesTargetQualityFilter);
+//        printVariantFilterStatus("passesTargetQualityFilter", passesTargetQualityFilter);
         assertThat(passesTargetQualityFilter.passedFilters(), is(false));
         assertPassedFilters(passesTargetQualityFilter, QUALITY_FILTER, VARIANT_EFFECT_FILTER);
         assertFailedFilters(passesTargetQualityFilter, FREQUENCY_FILTER);
@@ -222,17 +222,13 @@ public class SimpleVariantFilterRunnerTest {
         
         assertThat(secondResults, equalTo(variantEvaluations));     
         assertPassedFilters(passesAllFilters, firstFilterToPass.getFilterType(), secondFilterToPass.getFilterType());     
-        System.out.println(passesAllFilters);
 
         assertPassedFilters(passesQualityFrequencyFilter, firstFilterToPass.getFilterType());    
         assertFailedFilters(passesQualityFrequencyFilter, secondFilterToPass.getFilterType());
-        System.out.println(passesQualityFrequencyFilter);
 
         assertPassedFilters(passesTargetQualityFilter, firstFilterToPass.getFilterType(), secondFilterToPass.getFilterType());     
-        System.out.println(passesTargetQualityFilter);
 
         assertFailsEverything(failsAllFilters);     
-        System.out.println(failsAllFilters);
     }
 
 }

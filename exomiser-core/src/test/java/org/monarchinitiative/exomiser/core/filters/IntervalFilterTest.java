@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@ package org.monarchinitiative.exomiser.core.filters;
 
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.ChromosomalRegion;
 import org.monarchinitiative.exomiser.core.model.GeneticInterval;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
@@ -57,13 +58,13 @@ public class IntervalFilterTest {
     
     private static final GeneticInterval SEARCH_INTERVAL = new GeneticInterval(RIGHT_CHR, START_REGION, END_REGION);
 
-    private final VariantEvaluation rightChromosomeRightPosition = VariantEvaluation.builder(RIGHT_CHR, INSIDE_REGION, "A", "T")
+    private final VariantEvaluation rightChromosomeRightPosition = TestFactory.variantBuilder(RIGHT_CHR, INSIDE_REGION, "A", "T")
             .build();
-    private final VariantEvaluation rightChromosomeWrongPosition = VariantEvaluation.builder(RIGHT_CHR, BEFORE_REGION, "A", "T")
+    private final VariantEvaluation rightChromosomeWrongPosition = TestFactory.variantBuilder(RIGHT_CHR, BEFORE_REGION, "A", "T")
             .build();
-    private final VariantEvaluation wrongChromosomeRightPosition = VariantEvaluation.builder(WRONG_CHR, INSIDE_REGION, "A", "T")
+    private final VariantEvaluation wrongChromosomeRightPosition = TestFactory.variantBuilder(WRONG_CHR, INSIDE_REGION, "A", "T")
             .build();
-    private final VariantEvaluation wrongChromosomeWrongPosition = VariantEvaluation.builder(RIGHT_CHR, AFTER_REGION, "A", "T")
+    private final VariantEvaluation wrongChromosomeWrongPosition = TestFactory.variantBuilder(RIGHT_CHR, AFTER_REGION, "A", "T")
             .build();
 
     @Test
@@ -93,17 +94,16 @@ public class IntervalFilterTest {
 
         IntervalFilter multiIntervalFilter = new IntervalFilter(ImmutableList.of(interval3, interval2, interval3, interval1, interval4));
 
-        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(VariantEvaluation.builder(1, 19, "A", "T").build()));
-        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(VariantEvaluation.builder(1, 20, "A", "T").build()));
-        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(VariantEvaluation.builder(1, 27, "A", "T").build()));
-        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(VariantEvaluation.builder(1, 39, "A", "T").build()));
-        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(VariantEvaluation.builder(3, 51, "A", "T").build()));
-        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(VariantEvaluation.builder(3, 61, "A", "T").build()));
+        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(1, 19, "A", "T").build()));
+        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(1, 20, "A", "T").build()));
+        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(1, 27, "A", "T").build()));
+        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(1, 39, "A", "T").build()));
+        FilterTestHelper.assertPassed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(3, 51, "A", "T").build()));
+        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(3, 61, "A", "T").build()));
 
-        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(VariantEvaluation.builder(2, 233, "A", "T").build()));
+        FilterTestHelper.assertFailed(multiIntervalFilter.runFilter(TestFactory.variantBuilder(2, 233, "A", "T").build()));
 
         assertThat(multiIntervalFilter.getChromosomalRegions(), equalTo(ImmutableList.of(interval1, interval2, interval3, interval4)));
-        System.out.println(multiIntervalFilter);
     }
 
     @Test
@@ -139,10 +139,4 @@ public class IntervalFilterTest {
         IntervalFilter otherFilter = new IntervalFilter(SEARCH_INTERVAL);
         assertThat(instance.equals(otherFilter), is(true));
     }
-    
-    @Test
-    public void testToString() {
-        System.out.println(instance.toString());
-    }
-    
 }

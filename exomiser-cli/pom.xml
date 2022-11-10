@@ -1,7 +1,7 @@
 <!--
   ~ The Exomiser - A tool to annotate and prioritize genomic variants
   ~
-  ~ Copyright (c) 2016-2019 Queen Mary University of London.
+  ~ Copyright (c) 2016-2022 Queen Mary University of London.
   ~ Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
   ~
   ~ This program is free software: you can redistribute it and/or modify
@@ -32,7 +32,7 @@
     <parent>
         <groupId>org.monarchinitiative.exomiser</groupId>
         <artifactId>exomiser</artifactId>
-        <version>12.1.0</version>
+        <version>13.1.0</version>
     </parent>
 
     <properties>
@@ -49,7 +49,7 @@
         <dependency>
             <groupId>commons-cli</groupId>
             <artifactId>commons-cli</artifactId>
-            <version>1.3.1</version>
+            <version>1.5.0</version>
         </dependency>
         <!-- Caffiene is a newer Java 8 rewrite of GuavaCache-->
         <dependency>
@@ -146,10 +146,18 @@
                                     <directory>src/main/resources/examples</directory>
                                     <filtering>true</filtering>
                                     <includes>
-                                        <include>*.settings</include>
                                         <include>*.yml</include>
-                                        <include>test-analysis-batch.txt</include>
-                                        <include>test-batchFiles.txt</include>
+                                        <include>*.txt</include>
+                                    </includes>
+                                </resource>
+                                <resource>
+                                    <directory>src/test/resources</directory>
+                                    <includes>
+                                        <include>exome-analysis.yml</include>
+                                        <include>pfeiffer-job-phenopacket.yml</include>
+                                        <include>pfeiffer-phenopacket.yml</include>
+                                        <include>pfeiffer-family.yml</include>
+                                        <include>pfeiffer-output-options.yml</include>
                                     </includes>
                                 </resource>
                                 <resource>
@@ -160,6 +168,7 @@
                                         <include>Pfeiffer-quartet.ped</include>
                                         <include>*.vcf</include>
                                         <include>*.vcf.gz</include>
+                                        <include>*.vcf.gz.tbi</include>
                                     </includes>
                                 </resource>
                             </resources>
@@ -185,6 +194,39 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>install</phase>
+                        <goals>
+                            <goal>buildTar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <from>
+                        <!-- https://console.cloud.google.com/gcr/images/distroless/global/java17-debian11:latest-amd64 or latest-arm64 -->
+                        <image>${docker.base.image}</image>
+                    </from>
+                    <to>
+                        <image>${project.artifactId}:${project.parent.version}</image>
+                        <tags>
+                            <tag>latest</tag>
+                        </tags>
+                    </to>
+                    <container>
+                        <!--                        <format>OCI</format>-->
+                        <volumes>
+                            <volume>/exomiser-data</volume>
+                            <volume>/exomiser</volume>
+                            <volume>/results</volume>
+                        </volumes>
+                    </container>
+                </configuration>
             </plugin>
         </plugins>
     </build>

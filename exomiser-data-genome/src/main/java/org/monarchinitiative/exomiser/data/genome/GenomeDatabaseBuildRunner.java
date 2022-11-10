@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.data.genome.model.BuildInfo;
 import org.monarchinitiative.exomiser.data.genome.model.parsers.genome.EnsemblEnhancerParser;
 import org.monarchinitiative.exomiser.data.genome.model.parsers.genome.FantomEnhancerParser;
+import org.monarchinitiative.exomiser.data.genome.model.resource.sv.SvResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -40,8 +41,10 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -56,12 +59,16 @@ public class GenomeDatabaseBuildRunner {
 
     private final BuildInfo buildInfo;
     private final Path genomeDataPath;
+    private final Path genomeProcessedPath;
     private final Path outputPath;
+    private final List<SvResource> svResources;
 
-    public GenomeDatabaseBuildRunner(BuildInfo buildInfo, Path genomeDataPath, Path outputPath) {
+    public GenomeDatabaseBuildRunner(BuildInfo buildInfo, Path genomeDataPath, Path genomeProcessedPath, Path outputPath, List<SvResource> svResources) {
         this.buildInfo = buildInfo;
         this.genomeDataPath = genomeDataPath;
+        this.genomeProcessedPath = genomeProcessedPath;
         this.outputPath = outputPath;
+        this.svResources = svResources;
     }
 
     public void run() {
@@ -70,19 +77,37 @@ public class GenomeDatabaseBuildRunner {
         Path ensemblEnhancersFile = genomeDataPath.resolve("ensembl_enhancers.tsv");
         String martQuery = getMartQueryString("genome/ensembl_enhancer_biomart_query.xml");
         downloadEnsemblEnhancers(buildInfo.getAssembly(), martQuery, ensemblEnhancersFile);
-        EnsemblEnhancerParser ensemblEnhancerParser = new EnsemblEnhancerParser(ensemblEnhancersFile, genomeDataPath.resolve("ensembl_enhancers.pg"));
+        EnsemblEnhancerParser ensemblEnhancerParser = new EnsemblEnhancerParser(ensemblEnhancersFile, genomeProcessedPath.resolve("ensembl_enhancers.pg"));
         ensemblEnhancerParser.parse();
 
         logger.info("Parsing FANTOM 5 enhancers...");
         Path fantomBedPath = genomeDataPath.resolve("fantom_enhancers.bed");
         downloadClassPathResource(String.format("genome/%s_fantom_permissive_enhancer_usage.bed", buildInfo.getAssembly()), fantomBedPath);
 
-        FantomEnhancerParser fantomEnhancerParser = new FantomEnhancerParser(fantomBedPath, genomeDataPath.resolve("fantom_enhancers.pg"));
+        FantomEnhancerParser fantomEnhancerParser = new FantomEnhancerParser(fantomBedPath, genomeProcessedPath.resolve("fantom_enhancers.pg"));
         fantomEnhancerParser.parse();
 
         // extract hg19_tad.pg from the jar to genomeDataPath as tad.pg
         logger.info("Extracting TAD resource...");
-        downloadClassPathResource(String.format("genome/%s_tad.pg", buildInfo.getAssembly()), genomeDataPath.resolve("tad.pg"));
+        downloadClassPathResource(String.format("genome/%s_tad.pg", buildInfo.getAssembly()), genomeProcessedPath.resolve("tad.pg"));
+
+        logger.info("Downloading and indexing SV resources...");
+        svResources.parallelStream().forEach(ResourceDownloader::download);
+        svResources.parallelStream().forEach(SvResource::indexResource);
+
+        // process with something like an SvAlleleWriter - write out one .pg file per resource - very similar to the phenotype build process
+        // dbvar, dgv, decipher, gonl, gnomad-sv
+        //        alleleResources.forEach(alleleIndexer::index);
+        // read in resources as a migration and do mega union all sort SQL in migration script to produce the
+        // sv_freq and sv_path tables
+        // e.g. V1.3.0__insert_sv_freq
+        // e.g. V1.3.1__insert_sv_path
+        // truncate and drop original resource tables
+        // TODO: ADD gnomAD pLOF, pLI, HI, triplosensitivity, genic intolerance, gene constraint scores.
+        //                    // TODO: do we want to do this? Don't we want each resource to handle its own sources, parsing and writing?
+        //                    //  e.g. dbVar has 3-4 nr_ source files, clinVar has one file for both assemblies and only the correct
+        //                    //  lines should be converted and written.
+
 
         //build genome.h2.db
         Path databasePath = outputPath.resolve(String.format("%s_genome", buildInfo.getBuildString()));
@@ -95,9 +120,9 @@ public class GenomeDatabaseBuildRunner {
     private String getMartQueryString(String martQueryResourcePath) {
         try {
             Resource martQuery = new ClassPathResource(martQueryResourcePath);
-            try(BufferedReader reader = new BufferedReader(new InputStreamReader(martQuery.getInputStream()))) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(martQuery.getInputStream()))) {
                 String xml = reader.lines().collect(Collectors.joining("\n"));
-                return URLEncoder.encode(xml, "UTF-8");
+                return URLEncoder.encode(xml, StandardCharsets.UTF_8);
             }
         } catch (IOException e) {
             logger.error("", e);
@@ -151,7 +176,7 @@ public class GenomeDatabaseBuildRunner {
 
     private void migrateDatabase(DataSource dataSource) {
         Map<String, String> propertyPlaceHolders = new HashMap<>();
-        propertyPlaceHolders.put("import.path", genomeDataPath.toString());
+        propertyPlaceHolders.put("import.path", genomeProcessedPath.toString());
 
         logger.info("Migrating {} genome database...", buildInfo.getBuildString());
         Flyway h2Flyway = Flyway.configure()

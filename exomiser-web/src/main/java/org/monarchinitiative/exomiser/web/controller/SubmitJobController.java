@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@
  */
 package org.monarchinitiative.exomiser.web.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
@@ -33,15 +32,13 @@ import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisBuilder;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisMode;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.analysis.util.InheritanceModeOptions;
 import org.monarchinitiative.exomiser.core.analysis.util.PedFiles;
 import org.monarchinitiative.exomiser.core.filters.FilterReport;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.core.genome.VcfFiles;
-import org.monarchinitiative.exomiser.core.model.Gene;
-import org.monarchinitiative.exomiser.core.model.GeneticInterval;
-import org.monarchinitiative.exomiser.core.model.Pedigree;
-import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
+import org.monarchinitiative.exomiser.core.model.*;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicitySource;
 import org.monarchinitiative.exomiser.core.prioritisers.PriorityType;
@@ -57,11 +54,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Nullable;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.util.*;
 
 import static org.monarchinitiative.exomiser.core.prioritisers.PriorityType.*;
@@ -164,16 +164,28 @@ public class SubmitJobController {
             logger.info("{} contains {} variants - within set limit of {}", vcfPath, numVariantsInSample, maxVariants);
         }
 
-        Analysis analysis = buildAnalysis(vcfPath, pedPath, proband, phenotypes, geneticInterval, minimumQuality, minimumDepth, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
-        AnalysisResults analysisResults = exomiser.run(analysis);
 
-//2018-06-19: Write results to temporary directory for subsequent download
+        Sample sample = buildSample(vcfPath, pedPath, proband, phenotypes);
+        Analysis analysis = buildAnalysis(geneticInterval, minimumQuality, minimumDepth, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
+        AnalysisResults analysisResults = exomiser.run(sample, analysis);
+        //2018-06-19: Write results to temporary directory for subsequent download
         writeResultsToFile(analysisId, analysis, analysisResults);
+
 
         buildResultsModel(model, analysis, analysisResults);
         logger.info("Returning {} results to user", vcfPath.getFileName());
         cleanUpSampleFiles(vcfPath, pedPath);
         return "results";
+    }
+
+    private Sample buildSample(Path vcfPath, Path pedPath, String proband, List<String> phenotypes) {
+        return Sample.builder()
+                .genomeAssembly(GenomeAssembly.HG19)
+                .vcfPath(vcfPath)
+                .pedigree((pedPath == null) ? Pedigree.empty() : PedFiles.readPedigree(pedPath))
+                .probandSampleName(proband)
+                .hpoIds(phenotypes)
+                .build();
     }
 
     private List<String> getDiseasePhenotypes(String diseaseId) {
@@ -185,29 +197,20 @@ public class SubmitJobController {
 
     private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Float minimumDepth, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
 
-        //helmuth 2021-05-12: Use local frequency db and external sources
+        //helmuth 2022-11-10: Use local frequency db and external sources
         //AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
         //        .analysisMode(AnalysisMode.PASS_ONLY)
-        //        .genomeAssembly(GenomeAssembly.HG19)
-        //        .vcfPath(vcfPath)
-        //        .pedigree((pedPath == null) ? Pedigree.empty() : PedFiles.readPedigree(pedPath))
-        //        .probandSampleName(proband)
-        //        .hpoIds(phenotypes)
-        //        .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
+        //        .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY")) ? InheritanceModeOptions.defaults() : InheritanceModeOptions
+        //                .defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
         //        .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
         //        .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
         AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
                 .analysisMode(AnalysisMode.FULL)
-                .genomeAssembly(GenomeAssembly.HG19)
-                .vcfPath(vcfPath)
-                .pedigree((pedPath == null) ? Pedigree.empty() : PedFiles.readPedigree(pedPath))
-                .probandSampleName(proband)
-                .hpoIds(phenotypes)
                 .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
                 .frequencySources(FrequencySource.ALL_LOCAL_AND_EXTERNAL_FREQ_SOURCES)
-                .pathogenicitySources(EnumSet.of(PathogenicitySource.POLYPHEN, PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.CADD));
+                .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.CADD, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
 
-        //Also capture splicing variants
+        //helmuth 2022-11-10: Also capture splicing variants
         analysisBuilder.addVariantEffectFilter(Sets.immutableEnumSet(VariantEffect.SPLICE_REGION_VARIANT));
 
         addFilters(analysisBuilder, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, frequency, genesToKeep, geneticInterval);
@@ -235,7 +238,7 @@ public class SubmitJobController {
         return analysisBuilder.build();
     }
 
-    private void addFilters(AnalysisBuilder analysisBuilder, Float minimumQuality, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String frequency, Set<String> genesToKeep, String geneticInterval) {
+    private void addFilters(AnalysisBuilder analysisBuilder, Float minimumQuality, boolean removeDbSnp, boolean keepOffTarget, boolean keepNonPathogenic, String frequency, Set<String> genesToKeep, String geneticInterval) {
         //This is the original Exomiser analysis step order, as found in the SettingsParser
         //Filter for genes:
         if (!genesToKeep.isEmpty()) {
@@ -258,7 +261,7 @@ public class SubmitJobController {
             analysisBuilder.addKnownVariantFilter();
         }
         //Maximum minor allele frequency:
-        analysisBuilder.addFrequencyFilter(Float.valueOf(frequency));
+        analysisBuilder.addFrequencyFilter(Float.parseFloat(frequency));
         //Keep non-pathogenic variants:
         analysisBuilder.addPathogenicityFilter(keepNonPathogenic);
     }
@@ -277,7 +280,7 @@ public class SubmitJobController {
         }
     }
 
-    private void writeResultsToFile(UUID analysisId, Analysis analysis, AnalysisResults analysisResults) {
+    private void writeResultsToFile(UUID analysisId, AnalysisResults analysisResults) {
         Path outputDir = Paths.get(System.getProperty("java.io.tmpdir"), analysisId.toString());
         try {
             Files.createDirectory(outputDir);
@@ -294,7 +297,7 @@ public class SubmitJobController {
                 .outputFormats(EnumSet.of(OutputFormat.TSV_GENE, OutputFormat.TSV_VARIANT, OutputFormat.VCF, OutputFormat.JSON))
                 .build();
 
-        AnalysisResultsWriter.writeToFile(analysis, analysisResults, outputSettings);
+        AnalysisResultsWriter.writeToFile(analysisResults, outputSettings);
     }
 
     private void buildResultsModel(Model model, Analysis analysis, AnalysisResults analysisResults) {
@@ -303,13 +306,14 @@ public class SubmitJobController {
         mapper.registerModule(new Jdk7Module());
         mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
         mapper.configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING, true);
-        String jsonSettings = "";
+        StringWriter jsonSettings = new StringWriter();
         try {
-            jsonSettings = mapper.writeValueAsString(analysis);
-        } catch (JsonProcessingException ex) {
+            mapper.writeValue(jsonSettings, analysisResults.getSample());
+            mapper.writeValue(jsonSettings, analysisResults.getAnalysis());
+        } catch (Exception ex) {
             logger.error("Unable to process JSON settings", ex);
         }
-        model.addAttribute("settings", jsonSettings);
+        model.addAttribute("settings", jsonSettings.toString());
 
         //make the user aware of any unanalysed variants
         List<VariantEvaluation> unAnalysedVarEvals = analysisResults.getUnAnnotatedVariantEvaluations();
@@ -344,12 +348,28 @@ public class SubmitJobController {
 
         List<Gene> passedGenes = ResultsWriterUtils.getMaxPassedGenes(sampleGenes, maxGenes);
         model.addAttribute("genes", passedGenes);
-        //this will change the links to the relevant resource.
+//this will change the links to the relevant resource.
         // For the time being we're going to maintain the original behaviour (UCSC)
         // Need to wire it up through the system or it might be easiest to autodetect this from the transcripts of passed variants.
         // One of UCSC, ENSEMBL or REFSEQ
-        model.addAttribute("transcriptDb", "UCSC");
+        var transcriptDb = analysisResults.getContributingVariants().stream()
+                .flatMap(variantEvaluation -> variantEvaluation.getTranscriptAnnotations().stream())
+                .findFirst()
+                .map(TranscriptAnnotation::getAccession)
+                .map(value -> {
+                    if (value.startsWith("ENST")) {
+                        return "ENSEMBL";
+                    } else if (value.startsWith("uc")) {
+                        return "UCSC";
+                    } else if (value.startsWith("NM") || value.startsWith("NR") || value.startsWith("XM") || value.startsWith("XR")) {
+                        return "REFSEQ";
+                    }
+                    return "";
+                })
+                .orElse("ENSEMBL");
+        model.addAttribute("transcriptDb", transcriptDb);
         model.addAttribute("variantRankComparator", new VariantEvaluation.RankBasedComparator());
+        model.addAttribute("pValueFormatter", new DecimalFormat("0.0E0"));
     }
 
     private int numGenesPassedFilters(List<Gene> genes) {
@@ -388,7 +408,11 @@ public class SubmitJobController {
         return ImmutableSortedSet.copyOf(genesToFilter);
     }
 
+    @Nullable
     private Path createVcfPathFromMultipartFile(MultipartFile multipartVcfFile) {
+        if (multipartVcfFile == null || multipartVcfFile.getOriginalFilename() == null) {
+            return null;
+        }
         if (multipartVcfFile.getOriginalFilename().endsWith(".vcf.gz")) {
             return createPathFromMultipartFile(multipartVcfFile, ".vcf.gz");
         }

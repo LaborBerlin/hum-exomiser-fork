@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.CaddScore;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicityData;
@@ -66,7 +67,7 @@ public class CaddDaoTest {
     }
 
     private static VariantEvaluation variant(int chr, int pos, String ref, String alt) {
-        return VariantEvaluation.builder(chr, pos, ref, alt).build();
+        return TestFactory.variantBuilder(chr, pos, ref, alt).build();
     }
 
     private void assertPathDataContainsCaddScore(PathogenicityData result, float score) {
@@ -76,21 +77,21 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvNoData() {
-        Mockito.when(snvTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.empty());
+        Mockito.when(snvTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.empty());
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "A", "T"));
         assertThat(result, equalTo(PathogenicityData.empty()));
     }
 
     @Test
     public void testGetPathogenicityDataInsertionNoData() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.empty());
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.empty());
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "C", "CA"));
         assertThat(result, equalTo(PathogenicityData.empty()));
     }
 
     @Test
     public void testGetPathogenicityDataInsertionSingleVariantAtPositionNoMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "1\t1\tA\tAT\t-0.234\t3.45",
                 "1\t1\tA\tAC\t-0.234\t4.45"));
 
@@ -100,7 +101,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataInsertionSingleVariantAtPositionOneMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of("1\t2\tA\tAA\t-0.234\t3.45"));
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of("1\t2\tA\tAA\t-0.234\t3.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "A", "AA"));
         assertPathDataContainsCaddScore(result, 3.45f);
@@ -108,7 +109,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataInsertionMultipleVariantsAtPositionOneMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "\t\tA\tAC\t-0.234\t4.45",
                 "\t\tA\tAT\t-0.234\t3.45"));
 
@@ -118,14 +119,14 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDatadeletionNoData() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.empty());
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.empty());
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "AT", "T"));
         assertThat(result, equalTo(PathogenicityData.empty()));
     }
 
     @Test
     public void testGetPathogenicityDatadeletionSingleVariantAtPositionNoMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "1\t1\tAT\tA\t-0.234\t3.45",
                 "1\t1\tAC\tA\t-0.234\t4.45"));
 
@@ -135,7 +136,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataDeletionSingleVariantAtPositionOneMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of("1\t2\tGT\tG\t-0.234\t3.45"));
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of("1\t2\tGT\tG\t-0.234\t3.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "GT", "G"));
         assertPathDataContainsCaddScore(result, 3.45f);
@@ -143,7 +144,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataDeletionMultipleVariantsAtPositionOneMatch() {
-        Mockito.when(indelTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(indelTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "\t\tAC\tA\t-0.234\t4.45",
                 "\t\tAT\tA\t-0.234\t3.45"));
 
@@ -153,7 +154,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvSingleVariantAtPositionNoMatch() {
-        Mockito.when(snvTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(snvTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "1\t1\tA\tT\t-0.234\t3.45",
                 "1\t1\tA\tC\t-0.234\t4.45"));
 
@@ -163,7 +164,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvSingleVariantAtPositionOneMatch() {
-        Mockito.when(snvTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
+        Mockito.when(snvTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "A", "T"));
         assertPathDataContainsCaddScore(result, 3.45f);
@@ -171,7 +172,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvXchrSingleVariantAtPositionOneMatch() {
-        Mockito.when(snvTabixReader.query("X:1-1")).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
+        Mockito.when(snvTabixReader.query(0, 0, 1)).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(23, 1, "A", "T"));
         assertPathDataContainsCaddScore(result, 3.45f);
@@ -179,7 +180,7 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvYchrSingleVariantAtPositionOneMatch() {
-        Mockito.when(snvTabixReader.query("Y:1-1")).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
+        Mockito.when(snvTabixReader.query(0, 0, 1)).thenReturn(MockTabixIterator.of("1\t1\tA\tT\t-0.234\t3.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(24, 1, "A", "T"));
         assertPathDataContainsCaddScore(result, 3.45f);
@@ -187,12 +188,11 @@ public class CaddDaoTest {
 
     @Test
     public void testGetPathogenicityDataSnvMultipleVariantsAtPositionOneMatch() {
-        Mockito.when(snvTabixReader.query("1:2-2")).thenReturn(MockTabixIterator.of(
+        Mockito.when(snvTabixReader.query(0, 1, 2)).thenReturn(MockTabixIterator.of(
                 "\t\tA\tT\t-0.234\t3.45",
                 "\t\tA\tC\t-0.234\t4.45"));
 
         PathogenicityData result = instance.getPathogenicityData(variant(1, 2, "A", "T"));
         assertPathDataContainsCaddScore(result, 3.45f);
     }
-
 }

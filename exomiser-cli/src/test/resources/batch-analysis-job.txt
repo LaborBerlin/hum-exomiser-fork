@@ -1,0 +1,2 @@
+src/test/resources/pfeiffer-job-sample.yml
+src/test/resources/pfeiffer-job-phenopacket.yml

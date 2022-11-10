@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,9 +21,12 @@
 package org.monarchinitiative.exomiser.core.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import de.charite.compbio.jannovar.annotation.VariantEffect;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import de.charite.compbio.jannovar.mendel.SubModeOfInheritance;
+import org.monarchinitiative.exomiser.api.v1.JobProto;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.analysis.util.InheritanceModeOptions;
 import org.monarchinitiative.exomiser.core.analysis.util.PedFiles;
 import org.monarchinitiative.exomiser.core.genome.BedFiles;
@@ -40,6 +43,7 @@ import org.monarchinitiative.exomiser.core.prioritisers.PriorityFactory;
 import org.monarchinitiative.exomiser.core.prioritisers.PriorityType;
 import org.monarchinitiative.exomiser.core.writers.OutputFormat;
 import org.monarchinitiative.exomiser.core.writers.OutputSettings;
+import org.monarchinitiative.exomiser.core.writers.OutputSettingsProtoConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,24 +84,48 @@ public class AnalysisParser {
         this.ontologyService = ontologyService;
     }
 
+    public Sample parseSample(Path analysisScript) {
+        JobProto.Job job = JobReader.readJob(analysisScript);
+        return parseSample(job);
+    }
+
+    public Sample parseSample(String analysisDoc) {
+        JobProto.Job job = JobReader.readJob(analysisDoc);
+        return parseSample(job);
+    }
+
+    public Sample parseSample(JobProto.Job job) {
+        JobParser jobParser = new JobParser(genomeAnalysisServiceProvider, prioritiserFactory, ontologyService);
+        return jobParser.parseSample(job);
+    }
+
     public Analysis parseAnalysis(Path analysisScript) {
-        Map settingsMap = loadMap(analysisScript);
-        return constructAnalysisFromMap(settingsMap);
+        JobProto.Job job = JobReader.readJob(analysisScript);
+        return parseAnalysis(job);
     }
 
     public Analysis parseAnalysis(String analysisDoc) {
-        Map settingsMap = loadMap(analysisDoc);
-        return constructAnalysisFromMap(settingsMap);
+        JobProto.Job job = JobReader.readJob(analysisDoc);
+        return parseAnalysis(job);
+    }
+
+    public Analysis parseAnalysis(JobProto.Job job) {
+        JobParser jobParser = new JobParser(genomeAnalysisServiceProvider, prioritiserFactory, ontologyService);
+        return jobParser.parseAnalysis(job);
     }
 
     public OutputSettings parseOutputSettings(Path analysisScript) {
-        Map settingsMap = loadMap(analysisScript);
-        return constructOutputSettingsFromMap(settingsMap);
+        JobProto.Job job = JobReader.readJob(analysisScript);
+        return parseOutputSettings(job);
     }
 
     public OutputSettings parseOutputSettings(String analysisDoc) {
-        Map settingsMap = loadMap(analysisDoc);
-        return constructOutputSettingsFromMap(settingsMap);
+        JobProto.Job job = JobReader.readJob(analysisDoc);
+        return parseOutputSettings(job);
+    }
+
+    public OutputSettings parseOutputSettings(JobProto.Job job) {
+        return new OutputSettingsProtoConverter().toDomain(job.getOutputOptions());
     }
 
     private Map loadMap(String analysisDoc) {
@@ -126,16 +154,85 @@ public class AnalysisParser {
         return outputSettingsConstructor.construct((Map) settingsMap.get("outputOptions"));
     }
 
-    protected static class AnalysisFileNotFoundException extends RuntimeException {
-        AnalysisFileNotFoundException(String message, Exception e) { super(message, e);}
+    private Sample constructSampleFromMap(Map settingsMap) {
+        SampleConstructor sampleConstructor = new SampleConstructor();
+        if (settingsMap.containsKey("sample")) {
+            return sampleConstructor.construct((Map) settingsMap.get("sample"));
+        }
+        return sampleConstructor.construct((Map) settingsMap.get("analysis"));
     }
 
-    private class OutputSettingsConstructor {
+    protected static class AnalysisFileNotFoundException extends RuntimeException {
+        AnalysisFileNotFoundException(String message, Exception e) {
+            super(message, e);
+        }
+    }
+
+    private static class SampleConstructor {
+
+        private Sample construct(Map analysisMap) {
+            Sample sample = Sample.builder()
+                    .vcfPath(parseVcf(analysisMap))
+                    .genomeAssembly(parseGenomeAssembly(analysisMap))
+                    .pedigree(parsePed(analysisMap))
+                    .probandSampleName(parseProbandSampleName(analysisMap))
+                    .hpoIds(parseHpoIds(analysisMap))
+                    .build();
+            logger.info("parsed sample {}", sample);
+            return sample;
+        }
+
+
+        Path parseVcf(Map<String, String> analysisMap) {
+            String vcfValue = analysisMap.get("vcf");
+            //VCF file paths are not allowed to be null
+            if (vcfValue == null) {
+                return null;
+//                throw new AnalysisParserException("VCF path cannot be null.", analysisMap);
+            }
+            return Paths.get(vcfValue);
+        }
+
+        GenomeAssembly parseGenomeAssembly(Map<String, String> analysisMap) {
+            String genomeAssemblyValue = analysisMap.get("genomeAssembly");
+            //VCF file paths are not allowed to be null
+            if (genomeAssemblyValue == null || genomeAssemblyValue.isEmpty()) {
+                logger.info("genomeAssembly not specified - will use default: {}", GenomeAssembly.defaultBuild());
+                return GenomeAssembly.defaultBuild();
+            }
+            return GenomeAssembly.parseAssembly(genomeAssemblyValue);
+        }
+
+        Pedigree parsePed(Map<String, String> analysisMap) {
+            String pedValue = analysisMap.get("ped");
+            //PED file paths are allowed to be null
+            if (pedValue == null || pedValue.isEmpty()) {
+                return Pedigree.empty();
+            }
+            Path pedFile = Paths.get(pedValue);
+            return PedFiles.readPedigree(pedFile);
+        }
+
+        String parseProbandSampleName(Map<String, String> analysisMap) {
+            String probandSampleName = analysisMap.get("proband");
+            //probandSampleName is allowed to be null, but may throw exceptions when the VCF/PED file is checked
+            return Objects.requireNonNullElse(probandSampleName, "");
+        }
+
+        List<String> parseHpoIds(Map<String, List<String>> analysisMap) {
+            List<String> hpoIds = analysisMap.get("hpoIds");
+            return Objects.requireNonNullElseGet(hpoIds, ArrayList::new);
+        }
+    }
+
+    // TODO should these be split out into a parsers sub-package along with the JobParser and
+    private static class OutputSettingsConstructor {
 
         public OutputSettings construct(Map analysisMap) {
             return OutputSettings.builder()
                     .outputContributingVariantsOnly(parseOutputVariantsOption(analysisMap))
                     .numberOfGenesToShow(parseNumberOfGenesToShow(analysisMap))
+                    .minExomiserGeneScore(parseMinExomiserScore(analysisMap))
                     .outputPrefix(parseOutputPrefix(analysisMap))
                     .outputFormats(parseOutputFormats(analysisMap))
                     .build();
@@ -149,7 +246,10 @@ public class AnalysisParser {
                 //despite being deprecated and functionally different, this has the same return value
                 return parseBooleanValue(deprecatedOption, analysisMap);
             }
-            return parseBooleanValue(outputContributingVariantsOnly, analysisMap);
+            if (analysisMap.containsKey(outputContributingVariantsOnly)) {
+                return parseBooleanValue(outputContributingVariantsOnly, analysisMap);
+            }
+            return false;
         }
 
         private Boolean parseBooleanValue(String key, Map<String, Boolean> analysisMap) {
@@ -168,6 +268,14 @@ public class AnalysisParser {
             return genesToShow;
         }
 
+        private float parseMinExomiserScore(Map<String, Float> analysisMap) {
+            Float minExomiserGeneScore = analysisMap.get("minExomiserGeneScore");
+            if (minExomiserGeneScore == null) {
+                minExomiserGeneScore = 0f;
+            }
+            return minExomiserGeneScore;
+        }
+
         private String parseOutputPrefix(Map<String, String> analysisMap) {
             String outputPrefix = analysisMap.get("outputPrefix");
             if (outputPrefix == null) {
@@ -182,113 +290,41 @@ public class AnalysisParser {
                 logger.info("No output format options supplied.");
                 return EnumSet.noneOf(OutputFormat.class);
             }
-            Set<OutputFormat> parsedOutputFormats = new LinkedHashSet<>();
-            for (String name : givenOutputFormats) {
-                switch (name.trim().toUpperCase()) {
-                    case "HTML":
-                        parsedOutputFormats.add(OutputFormat.HTML);
-                        break;
-                    case "TSV_GENE":
-                    case "TAB-GENE":
-                    case "TSV-GENE":
-                        parsedOutputFormats.add(OutputFormat.TSV_GENE);
-                        break;
-                    case "TSV_VARIANT":
-                    case "TAB-VARIANT":
-                    case "TSV-VARIANT":
-                        parsedOutputFormats.add(OutputFormat.TSV_VARIANT);
-                        break;
-                    case "VCF":
-                        parsedOutputFormats.add(OutputFormat.VCF);
-                        break;
-                    case "PHENOGRID":
-                        parsedOutputFormats.add(OutputFormat.PHENOGRID);
-                        break;
-                    case "JSON":
-                        parsedOutputFormats.add(OutputFormat.JSON);
-                        break;
-                    default:
-                        logger.info("{} is not a recognised output format. Please choose one or more of HTML, TSV_GENE, TSV_VARIANT, VCF, JSON - defaulting to HTML", name);
-                        parsedOutputFormats.add(OutputFormat.HTML);
-                        break;
-                }
-            }
-            return EnumSet.copyOf(parsedOutputFormats);
+            return givenOutputFormats.stream()
+                    .map(OutputFormat::parseFormat)
+                    .collect(Sets.toImmutableEnumSet());
         }
     }
 
     private class AnalysisConstructor {
 
-        private final GenomeAssembly defaultAssembly = GenomeAssembly.HG19;
-
         public Analysis construct(Map analysisMap) {
+            Analysis analysis = constructBuilder(analysisMap).build();
+            logger.debug("Made analysis: {}", analysis);
+            return analysis;
+        }
+
+        public AnalysisBuilder constructBuilder(Map analysisMap) {
 
             //this method is only here to provide a warning to users that their script is out of date.
             warnUserAboutDeprecatedGeneScoreMode(analysisMap);
 
             AnalysisBuilder analysisBuilder = new AnalysisBuilder(genomeAnalysisServiceProvider, prioritiserFactory, ontologyService)
-                    .vcfPath(parseVcf(analysisMap))
-                    .genomeAssembly(parseGenomeAssembly(analysisMap))
-                    .pedigree(parsePed(analysisMap))
-                    .probandSampleName(parseProbandSampleName(analysisMap))
-                    .hpoIds(parseHpoIds(analysisMap))
-                    .inheritanceModes(inheritanceModeOptions(analysisMap))
+                    // these are part of the Sample
+//                    .vcfPath(parseVcf(analysisMap))
+//                    .genomeAssembly(parseGenomeAssembly(analysisMap))
+//                    .pedigree(parsePed(analysisMap))
+//                    .probandSampleName(parseProbandSampleName(analysisMap))
+//                    .hpoIds(parseHpoIds(analysisMap))
+
                     .analysisMode(parseAnalysisMode(analysisMap))
+                    .inheritanceModes(inheritanceModeOptions(analysisMap))
                     .frequencySources(parseFrequencySources(analysisMap))
                     .pathogenicitySources(parsePathogenicitySources(analysisMap));
 
             addAnalysisSteps(analysisMap, analysisBuilder);
 
-            Analysis analysis = analysisBuilder.build();
-
-            logger.debug("Made analysis: {}", analysis);
-            return analysis;
-        }
-
-        private Path parseVcf(Map<String, String> analysisMap) {
-            String vcfValue = analysisMap.get("vcf");
-            //VCF file paths are not allowed to be null
-            if (vcfValue == null) {
-                throw new AnalysisParserException("VCF path cannot be null.", analysisMap);
-            }
-            return Paths.get(vcfValue);
-        }
-
-        private GenomeAssembly parseGenomeAssembly(Map<String, String> analysisMap) {
-            String genomeAssemblyValue = analysisMap.get("genomeAssembly");
-            //VCF file paths are not allowed to be null
-            if (genomeAssemblyValue == null || genomeAssemblyValue.isEmpty()) {
-                logger.info("genomeAssembly not specified - will use default: {}", defaultAssembly);
-                return defaultAssembly;
-            }
-            return GenomeAssembly.fromValue(genomeAssemblyValue);
-        }
-
-        private Pedigree parsePed(Map<String, String> analysisMap) {
-            String pedValue = analysisMap.get("ped");
-            //PED file paths are allowed to be null
-            if (pedValue == null || pedValue.isEmpty()) {
-                return Pedigree.empty();
-            }
-            Path pedFile = Paths.get(pedValue);
-            return PedFiles.readPedigree(pedFile);
-        }
-
-        private String parseProbandSampleName(Map<String, String> analysisMap) {
-            String probandSampleName = analysisMap.get("proband");
-            //probandSampleName is allowed to be null, but may throw exceptions when the VCF/PED file is checked
-            if (probandSampleName == null) {
-                return "";
-            }
-            return probandSampleName;
-        }
-
-        private List<String> parseHpoIds(Map<String, List<String>> analysisMap) {
-            List<String> hpoIds = analysisMap.get("hpoIds");
-            if (hpoIds == null) {
-                return new ArrayList<>();
-            }
-            return hpoIds;
+            return analysisBuilder;
         }
 
         private InheritanceModeOptions inheritanceModeOptions(Map<String, Object> analysisMap) {

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2017 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,12 +21,20 @@
 package org.monarchinitiative.exomiser.core.genome;
 
 import org.monarchinitiative.exomiser.core.model.VariantAnnotation;
+import org.monarchinitiative.svart.Variant;
+
+import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
 public interface VariantAnnotator {
 
-    public VariantAnnotation annotate(String chr, int pos, String ref, String alt);
+    /**
+     * The genome assembly against which this {@link VariantAnnotator} will annotate variants.
+     */
+    GenomeAssembly genomeAssembly();
 
+    List<VariantAnnotation> annotate(@Nullable Variant variant);
 }

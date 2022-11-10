@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,8 @@
 
 package org.monarchinitiative.exomiser.core.analysis.util;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
@@ -40,17 +42,19 @@ public class InheritanceModeOptions {
     static {
         DEFAULT_FREQ.put(SubModeOfInheritance.AUTOSOMAL_DOMINANT, 0.1f);
         DEFAULT_FREQ.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_COMP_HET, 2.0f);
-        DEFAULT_FREQ.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT, 1.0f); //presumably hom alts need to be a lot rarer
+        DEFAULT_FREQ.put(SubModeOfInheritance.AUTOSOMAL_RECESSIVE_HOM_ALT, 0.1f); //presumably hom alts need to be a lot rarer
 
         DEFAULT_FREQ.put(SubModeOfInheritance.X_DOMINANT, 0.1f);
         DEFAULT_FREQ.put(SubModeOfInheritance.X_RECESSIVE_COMP_HET, 2.0f);
-        DEFAULT_FREQ.put(SubModeOfInheritance.X_RECESSIVE_HOM_ALT, 1.0f);
+        DEFAULT_FREQ.put(SubModeOfInheritance.X_RECESSIVE_HOM_ALT, 0.1f);
 
         DEFAULT_FREQ.put(SubModeOfInheritance.MITOCHONDRIAL, 0.2f);
     }
 
     private static final InheritanceModeOptions DEFAULT = new InheritanceModeOptions(DEFAULT_FREQ);
     private static final InheritanceModeOptions EMPTY = new InheritanceModeOptions(Collections.emptyMap());
+    // Max frequency is 100%
+    public static final float MAX_FREQ = 100f;
 
     private final Map<SubModeOfInheritance, Float> subMoiMaxFreqs;
     private final Map<ModeOfInheritance, Float> moiMaxFreqs;
@@ -64,6 +68,7 @@ public class InheritanceModeOptions {
         return EMPTY;
     }
 
+    @JsonCreator
     public static InheritanceModeOptions of(Map<SubModeOfInheritance, Float> values) {
         Objects.requireNonNull(values);
         return new InheritanceModeOptions(values);
@@ -103,7 +108,7 @@ public class InheritanceModeOptions {
         this.subMoiMaxFreqs = Maps.immutableEnumMap(values);
         this.subMoiMaxFreqs.forEach(InheritanceModeOptions::checkBounds);
         this.moiMaxFreqs = createInheritanceModeMaxFreqs(subMoiMaxFreqs);
-        this.maxFreq = moiMaxFreqs.values().stream().max(Comparator.naturalOrder()).orElse(Float.MAX_VALUE);
+        this.maxFreq = moiMaxFreqs.values().stream().max(Comparator.naturalOrder()).orElse(MAX_FREQ);
     }
 
     private static void checkBounds(SubModeOfInheritance key, Float value) {
@@ -158,11 +163,21 @@ public class InheritanceModeOptions {
     }
 
     /**
+     * Returns the maximum minor allele frequency (as a percentage value) for each defined mode of inheritance.
+     *
+     * @return A map of the defined maximum minor allele frequency values
+     * @since 13.0.0
+     */
+    public Map<SubModeOfInheritance, Float> getMaxFreqs() {
+        return subMoiMaxFreqs;
+    }
+
+    /**
      * @param modeOfInheritance The {@code ModeOfInheritance} for which a cutoff value is desired.
      * @return the maximum minor allele frequency value for this {@code ModeOfInheritance}.
      */
     public float getMaxFreqForMode(ModeOfInheritance modeOfInheritance) {
-        return moiMaxFreqs.getOrDefault(modeOfInheritance, Float.MAX_VALUE);
+        return moiMaxFreqs.getOrDefault(modeOfInheritance, MAX_FREQ);
     }
 
     /**
@@ -172,7 +187,7 @@ public class InheritanceModeOptions {
      * @return the maximum minor allele frequency value for this {@code SubModeOfInheritance}.
      */
     public float getMaxFreqForSubMode(SubModeOfInheritance subModeOfInheritance) {
-        return subMoiMaxFreqs.getOrDefault(subModeOfInheritance, Float.MAX_VALUE);
+        return subMoiMaxFreqs.getOrDefault(subModeOfInheritance, MAX_FREQ);
     }
 
     /**
@@ -180,18 +195,22 @@ public class InheritanceModeOptions {
      *
      * @return the maximum defined minor allele frequency  value for all modes of inheritance
      */
+    @JsonIgnore
     public float getMaxFreq() {
         return maxFreq;
     }
 
+    @JsonIgnore
     public Set<ModeOfInheritance> getDefinedModes() {
         return Sets.immutableEnumSet(moiMaxFreqs.keySet());
     }
 
+    @JsonIgnore
     public Set<SubModeOfInheritance> getDefinedSubModes() {
         return Sets.immutableEnumSet(subMoiMaxFreqs.keySet());
     }
 
+    @JsonIgnore
     public boolean isEmpty() {
         return subMoiMaxFreqs.isEmpty();
     }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 
 package org.monarchinitiative.exomiser.data.genome.model.resource;
 
+import org.monarchinitiative.exomiser.data.genome.model.archive.DbSnpArchive;
 import org.monarchinitiative.exomiser.data.genome.model.parsers.DbSnpAlleleParser;
 
 import java.net.URL;
@@ -28,9 +29,9 @@ import java.nio.file.Path;
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
-public class DbSnpAlleleResource extends TabixAlleleResource {
+public class DbSnpAlleleResource extends AbstractAlleleResource {
 
     public DbSnpAlleleResource(String name, URL resourceUrl, Path resourcePath) {
-        super(name, resourceUrl, resourcePath, new DbSnpAlleleParser());
+        super(name, resourceUrl, new DbSnpArchive(resourcePath), new DbSnpAlleleParser());
     }
 }

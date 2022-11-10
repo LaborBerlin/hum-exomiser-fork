@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,10 +20,8 @@
 
 package org.monarchinitiative.exomiser.autoconfigure.genome;
 
-import org.monarchinitiative.exomiser.autoconfigure.DataSourceProperties;
 import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.core.genome.jannovar.TranscriptSource;
-import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,7 +31,7 @@ import java.nio.file.Paths;
  */
 public abstract class AbstractGenomeProperties implements GenomeProperties {
 
-    private GenomeAssembly assembly;
+    private final GenomeAssembly assembly;
     private TranscriptSource transcriptSource = TranscriptSource.ENSEMBL;
     private String dataVersion = "";
 
@@ -53,6 +51,10 @@ public abstract class AbstractGenomeProperties implements GenomeProperties {
     // datastore
     private String testPathogenicityScorePath = "";
 
+    protected AbstractGenomeProperties(GenomeAssembly assembly) {
+        this.assembly = assembly;
+    }
+
     @Override
     public Path getDataDirectory() {
         return dataDirectory;
@@ -61,13 +63,6 @@ public abstract class AbstractGenomeProperties implements GenomeProperties {
     @Override
     public void setDataDirectory(String dataDirectory) {
         this.dataDirectory = Paths.get(dataDirectory);
-    }
-
-    @NestedConfigurationProperty
-    private DataSourceProperties datasource = new DataSourceProperties();
-
-    public AbstractGenomeProperties(GenomeAssembly assembly) {
-        this.assembly = assembly;
     }
 
     public GenomeAssembly getAssembly() {
@@ -92,14 +87,6 @@ public abstract class AbstractGenomeProperties implements GenomeProperties {
 
     public void setTranscriptSource(String name) {
         this.transcriptSource = TranscriptSource.parseValue(name);
-    }
-
-    public DataSourceProperties getDatasource() {
-        return datasource;
-    }
-
-    public void setDatasource(DataSourceProperties dataSourceProperties) {
-        this.datasource = dataSourceProperties;
     }
 
     public String getVariantWhiteListPath() {

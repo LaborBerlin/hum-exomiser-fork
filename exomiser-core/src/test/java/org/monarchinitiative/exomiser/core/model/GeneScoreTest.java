@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,9 +22,15 @@ package org.monarchinitiative.exomiser.core.model;
 
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.analysis.util.acmg.AcmgAssignment;
+import org.monarchinitiative.exomiser.core.analysis.util.acmg.AcmgClassification;
+import org.monarchinitiative.exomiser.core.analysis.util.acmg.AcmgEvidence;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
+import org.monarchinitiative.exomiser.core.prioritisers.model.Disease;
 
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -58,32 +64,40 @@ public class GeneScoreTest {
     @Test
     public void getCombinedScore() {
         GeneScore instance = GeneScore.builder()
-                .combinedScore(1f)
+                .combinedScore(1d)
                 .build();
-        assertThat(instance.getCombinedScore(), equalTo(1f));
+        assertThat(instance.getCombinedScore(), equalTo(1d));
+    }
+
+    @Test
+    public void getPvalue() {
+        GeneScore instance = GeneScore.builder()
+                .pValue(0.00001d)
+                .build();
+        assertThat(instance.pValue(), equalTo(0.00001d));
     }
 
     @Test
     public void getPhenotypeScore() {
         GeneScore instance = GeneScore.builder()
-                .phenotypeScore(1f)
+                .phenotypeScore(1d)
                 .build();
-        assertThat(instance.getPhenotypeScore(), equalTo(1f));
+        assertThat(instance.getPhenotypeScore(), equalTo(1d));
     }
 
     @Test
     public void getVariantScore() {
         GeneScore instance = GeneScore.builder()
-                .variantScore(1f)
+                .variantScore(1d)
                 .build();
-        assertThat(instance.getVariantScore(), equalTo(1f));
+        assertThat(instance.getVariantScore(), equalTo(1d));
     }
 
     @Test
     public void getContributingVariants() {
-        List<VariantEvaluation> contributingVariants = Arrays.asList(
-                VariantEvaluation.builder(1, 12335, "T", "C").build(),
-                VariantEvaluation.builder(1, 23446, "A", "T").build()
+        List<VariantEvaluation> contributingVariants = List.of(
+                TestFactory.variantBuilder(1, 12335, "T", "C").build(),
+                TestFactory.variantBuilder(1, 23446, "A", "T").build()
         );
 
         GeneScore instance = GeneScore.builder()
@@ -93,20 +107,30 @@ public class GeneScoreTest {
     }
 
     @Test
+    void testAcmgAssignment() {
+        AcmgAssignment acmgAssignment = AcmgAssignment.of(TestFactory.variantBuilder(1, 12335, "T", "C").build(), TestFactory.newGeneFGFR2().getGeneIdentifier(), ModeOfInheritance.AUTOSOMAL_DOMINANT, Disease.builder().build(), AcmgEvidence.builder().build(), AcmgClassification.PATHOGENIC);
+
+        GeneScore instance = GeneScore.builder()
+                .acmgAssignments(List.of(acmgAssignment))
+                .build();
+        assertThat(instance.getAcmgAssignments(), equalTo(List.of(acmgAssignment)));
+    }
+
+    @Test
     public void equals() {
         assertThat(GeneScore.builder().build(), equalTo(GeneScore.builder().build()));
     }
 
     @Test
     public void testMaxCombinedScore() {
-        GeneScore max = GeneScore.builder().combinedScore(1f).build();
-        GeneScore other = GeneScore.builder().combinedScore(0.5f).build();
+        GeneScore max = GeneScore.builder().combinedScore(1d).build();
+        GeneScore other = GeneScore.builder().combinedScore(0.5).build();
 
         assertThat(GeneScore.max(max, other), equalTo(max));
         assertThat(GeneScore.max(other, max), equalTo(max));
 
-        GeneScore positiveZero = GeneScore.builder().combinedScore(0f).build();
-        GeneScore negativeZero = GeneScore.builder().combinedScore(-0f).build();
+        GeneScore positiveZero = GeneScore.builder().combinedScore(0).build();
+        GeneScore negativeZero = GeneScore.builder().combinedScore(-0).build();
 
         assertThat(GeneScore.max(positiveZero, negativeZero), equalTo(positiveZero));
         assertThat(GeneScore.max(negativeZero, positiveZero), equalTo(positiveZero));
@@ -120,29 +144,32 @@ public class GeneScoreTest {
 
         // After an analysis, a single gene will have different scores due to different inheritance modes but these have
         // been omitted for clarity of what is actually being tested
-        GeneScore one = GeneScore.builder().combinedScore(1f).geneIdentifier(first).build();
-        GeneScore two = GeneScore.builder().combinedScore(0.5f).geneIdentifier(first).build();
-        GeneScore three =  GeneScore.builder().combinedScore(0.5f).geneIdentifier(second).build();
-        GeneScore four =  GeneScore.builder().combinedScore(0.25f).geneIdentifier(second).build();
-        GeneScore five =  GeneScore.builder().combinedScore(0.25f).geneIdentifier(third).build();
-        GeneScore six =  GeneScore.builder().combinedScore(0.125f).geneIdentifier(third).build();
+        GeneScore one = GeneScore.builder().combinedScore(1d).geneIdentifier(first).build();
+        GeneScore two = GeneScore.builder().combinedScore(0.5).geneIdentifier(first).build();
+        GeneScore three = GeneScore.builder().combinedScore(0.5).geneIdentifier(second).build();
+        GeneScore four = GeneScore.builder().combinedScore(0.25).geneIdentifier(second).build();
+        GeneScore five = GeneScore.builder().combinedScore(0.25).geneIdentifier(third).build();
+        GeneScore six = GeneScore.builder().combinedScore(0.125).geneIdentifier(third).build();
+        GeneScore seven = GeneScore.builder().combinedScore(0.0).phenotypeScore(0.6).geneIdentifier(second).build();
+        GeneScore eight = GeneScore.builder().combinedScore(0.0).phenotypeScore(0.5).geneIdentifier(first).build();
 
-        List<GeneScore> geneScores = Arrays.asList(two, three, six, one, five, four);
+        List<GeneScore> geneScores = Stream.of(two, three, six, one, five, four, eight, seven)
+                .sorted()
+                .collect(Collectors.toUnmodifiableList());
 
-        geneScores.sort(GeneScore::compareTo);
-
-        assertThat(geneScores, equalTo(Arrays.asList(one, two, three, four, five, six)));
+        assertThat(geneScores, equalTo(List.of(one, two, three, four, five, six, seven, eight)));
     }
 
     @Test
     public void testToString() {
         GeneScore instance = GeneScore.builder()
                 .geneIdentifier(GeneIdentifier.builder().geneSymbol("TEST1").geneId("HGNC:12345").build())
-                .combinedScore(1f)
-                .phenotypeScore(1f)
-                .variantScore(1f)
+                .combinedScore(1)
+                .phenotypeScore(1)
+                .variantScore(1)
+                .pValue(0.0001)
                 .modeOfInheritance(ModeOfInheritance.AUTOSOMAL_DOMINANT)
                 .build();
-        System.out.println(instance);
+        assertThat(instance.toString(), equalTo("GeneScore{geneIdentifier=GeneIdentifier{geneId='HGNC:12345', geneSymbol='TEST1', hgncId='', hgncSymbol='', entrezId='', ensemblId='', ucscId=''}, modeOfInheritance=AUTOSOMAL_DOMINANT, combinedScore=1.0, phenotypeScore=1.0, variantScore=1.0, pValue=1.0E-4, contributingVariants=[]}"));
     }
 }

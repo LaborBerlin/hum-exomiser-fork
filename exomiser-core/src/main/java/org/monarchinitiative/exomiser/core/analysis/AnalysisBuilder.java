@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,21 +26,17 @@ import org.monarchinitiative.exomiser.core.analysis.util.InheritanceModeOptions;
 import org.monarchinitiative.exomiser.core.filters.*;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
 import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisServiceProvider;
-import org.monarchinitiative.exomiser.core.genome.GenomeAssembly;
 import org.monarchinitiative.exomiser.core.model.ChromosomalRegion;
 import org.monarchinitiative.exomiser.core.model.GeneticInterval;
-import org.monarchinitiative.exomiser.core.model.Pedigree;
 import org.monarchinitiative.exomiser.core.model.frequency.FrequencySource;
 import org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicitySource;
 import org.monarchinitiative.exomiser.core.phenotype.service.OntologyService;
 import org.monarchinitiative.exomiser.core.prioritisers.HiPhiveOptions;
-import org.monarchinitiative.exomiser.core.prioritisers.Prioritiser;
 import org.monarchinitiative.exomiser.core.prioritisers.PriorityFactory;
 import org.monarchinitiative.exomiser.core.prioritisers.PriorityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -48,7 +44,7 @@ import java.util.*;
  *
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
  */
-public class AnalysisBuilder {
+public class AnalysisBuilder implements FluentAnalysisBuilder<Analysis> {
 
     private static final Logger logger = LoggerFactory.getLogger(AnalysisBuilder.class);
 
@@ -59,15 +55,14 @@ public class AnalysisBuilder {
 
     private final Analysis.Builder builder;
 
-    //Sample-related variables
-    private List<String> hpoIds = new ArrayList<>();
     private InheritanceModeOptions inheritanceModeOptions = InheritanceModeOptions.empty();
+
     //Source-data-related variables
     private GenomeAnalysisService genomeAnalysisService;
     private Set<FrequencySource> frequencySources = EnumSet.noneOf(FrequencySource.class);
     private Set<PathogenicitySource> pathogenicitySources = EnumSet.noneOf(PathogenicitySource.class);
 
-    private List<AnalysisStep> analysisSteps = new ArrayList<>();
+    private final List<AnalysisStep> analysisSteps = new ArrayList<>();
 
     AnalysisBuilder(GenomeAnalysisServiceProvider genomeAnalysisServiceProvider, PriorityFactory priorityFactory, OntologyService ontologyService) {
         this.ontologyService = ontologyService;
@@ -76,41 +71,17 @@ public class AnalysisBuilder {
         this.builder = Analysis.builder();
     }
 
+    // TODO: Should this be building an AnalysisProto (rename to Analysis), then the AnalysisProto is wrapped in an AnalysisRunnerSupport?
+    //  alternatively the AnalysisParser could be used for creating a RunnableAnalysis which has all the decorated filters and so on ready to roll
+    //  i.e. rename the current Analysis to Job and split into Sample and Analysis
     public Analysis build() {
         new AnalysisStepChecker().check(analysisSteps);
         builder.steps(analysisSteps);
         return builder.build();
     }
 
-    public AnalysisBuilder vcfPath(Path vcfPath) {
-        builder.vcfPath(vcfPath);
-        return this;
-    }
-
-    public AnalysisBuilder genomeAssembly(GenomeAssembly genomeAssembly) {
-        this.genomeAnalysisService = genomeAnalysisServiceProvider.get(genomeAssembly);
-        builder.genomeAssembly(genomeAssembly);
-        return this;
-    }
-
-    public AnalysisBuilder pedigree(Pedigree pedigree) {
-        builder.pedigree(pedigree);
-        return this;
-    }
-
-    public AnalysisBuilder probandSampleName(String sampleName) {
-        builder.probandSampleName(sampleName);
-        return this;
-    }
-
-    public AnalysisBuilder hpoIds(List<String> hpoIds) {
-        this.hpoIds = ontologyService.getCurrentHpoIds(hpoIds);
-        builder.hpoIds(this.hpoIds);
-        return this;
-    }
-
     public AnalysisBuilder inheritanceModes(InheritanceModeOptions inheritanceModeOptions) {
-        this.inheritanceModeOptions = inheritanceModeOptions;
+        this.inheritanceModeOptions = Objects.requireNonNull(inheritanceModeOptions);
         builder.inheritanceModeOptions(this.inheritanceModeOptions);
         return this;
     }
@@ -176,27 +147,18 @@ public class AnalysisBuilder {
     }
 
     public AnalysisBuilder addKnownVariantFilter() {
-        analysisSteps.add(makeFrequencyDependentStep(new KnownVariantFilter()));
-        return this;
-    }
-
-    private FrequencyDataProvider makeFrequencyDependentStep(VariantFilter filter) {
         if (frequencySources.isEmpty()) {
             throw new IllegalArgumentException("Frequency sources have not yet been defined. Add some frequency sources before defining the analysis steps.");
         }
-        GenomeAnalysisService analysisService = getGenomeAnalysisService();
-        return new FrequencyDataProvider(analysisService, frequencySources, filter);
-    }
-
-    private GenomeAnalysisService getGenomeAnalysisService() {
-        if (genomeAnalysisService != null) {
-            return genomeAnalysisService;
-        }
-        throw new UndefinedGenomeAssemblyException("Genome assembly has not yet been defined. This is required before adding an assembly-dependant step.");
+        analysisSteps.add(new KnownVariantFilter());
+        return this;
     }
 
     public AnalysisBuilder addFrequencyFilter(float cutOff) {
-        analysisSteps.add(makeFrequencyDependentStep(new FrequencyFilter(cutOff)));
+        if (frequencySources.isEmpty()) {
+            throw new IllegalArgumentException("Frequency sources have not yet been defined. Add some frequency sources before defining the analysis steps.");
+        }
+        analysisSteps.add(new FrequencyFilter(cutOff));
         return this;
     }
 
@@ -214,21 +176,15 @@ public class AnalysisBuilder {
             throw new IllegalArgumentException("Unable to add frequency filter with undefined max frequency without inheritanceModeOptions being set.");
         }
         float cutOff = inheritanceModeOptions.getMaxFreq();
-        analysisSteps.add(makeFrequencyDependentStep(new FrequencyFilter(cutOff)));
-        return this;
+        return addFrequencyFilter(cutOff);
     }
 
     public AnalysisBuilder addPathogenicityFilter(boolean keepNonPathogenic) {
-        analysisSteps.add(makePathogenicityDependentStep(new PathogenicityFilter(keepNonPathogenic)));
-        return this;
-    }
-
-    private PathogenicityDataProvider makePathogenicityDependentStep(PathogenicityFilter pathogenicityFilter) {
         if (pathogenicitySources.isEmpty()) {
             throw new IllegalArgumentException("Pathogenicity sources have not yet been defined. Add some pathogenicity sources before defining the analysis steps.");
         }
-        GenomeAnalysisService analysisService = getGenomeAnalysisService();
-        return new PathogenicityDataProvider(analysisService, pathogenicitySources, pathogenicityFilter);
+        analysisSteps.add(new PathogenicityFilter(keepNonPathogenic));
+        return this;
     }
 
     public AnalysisBuilder addPriorityScoreFilter(PriorityType priorityType, float minPriorityScore) {
@@ -257,30 +213,22 @@ public class AnalysisBuilder {
     }
 
     public AnalysisBuilder addPhivePrioritiser() {
-        addPrioritiserStepIfHpoIdsNotEmpty(priorityFactory.makePhivePrioritiser());
+        analysisSteps.add(priorityFactory.makePhivePrioritiser());
         return this;
     }
 
-    private void addPrioritiserStepIfHpoIdsNotEmpty(Prioritiser prioritiser) {
-        if (hpoIds == null || hpoIds.isEmpty()) {
-            throw new IllegalArgumentException("HPO IDs not yet defined. Define some sample phenotypes before adding Prioritiser of type " + prioritiser
-                    .getPriorityType());
-        }
-        analysisSteps.add(prioritiser);
-    }
-
     public AnalysisBuilder addHiPhivePrioritiser() {
-        addPrioritiserStepIfHpoIdsNotEmpty(priorityFactory.makeHiPhivePrioritiser(HiPhiveOptions.defaults()));
+        analysisSteps.add(priorityFactory.makeHiPhivePrioritiser(HiPhiveOptions.defaults()));
         return this;
     }
 
     public AnalysisBuilder addHiPhivePrioritiser(HiPhiveOptions hiPhiveOptions) {
-        addPrioritiserStepIfHpoIdsNotEmpty(priorityFactory.makeHiPhivePrioritiser(hiPhiveOptions));
+        analysisSteps.add(priorityFactory.makeHiPhivePrioritiser(hiPhiveOptions));
         return this;
     }
 
     public AnalysisBuilder addPhenixPrioritiser() {
-        addPrioritiserStepIfHpoIdsNotEmpty(priorityFactory.makePhenixPrioritiser());
+        analysisSteps.add(priorityFactory.makePhenixPrioritiser());
         return this;
     }
 

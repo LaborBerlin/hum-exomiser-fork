@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -26,15 +26,24 @@
 package org.monarchinitiative.exomiser.core.writers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.datatype.jdk7.Jdk7Module;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
+import org.monarchinitiative.exomiser.api.v1.AnalysisProto;
+import org.monarchinitiative.exomiser.api.v1.JobProto;
+import org.monarchinitiative.exomiser.api.v1.OutputProto;
+import org.monarchinitiative.exomiser.api.v1.SampleProto;
 import org.monarchinitiative.exomiser.core.analysis.Analysis;
+import org.monarchinitiative.exomiser.core.analysis.AnalysisProtoConverter;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
+import org.monarchinitiative.exomiser.core.analysis.sample.SampleProtoConverter;
 import org.monarchinitiative.exomiser.core.filters.FilterReport;
 import org.monarchinitiative.exomiser.core.model.Gene;
+import org.monarchinitiative.exomiser.core.model.TranscriptAnnotation;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +56,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Locale;
 
@@ -67,12 +77,13 @@ public class HtmlResultsWriter implements ResultsWriter {
     }
 
     @Override
-    public void writeFile(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
+    public void writeFile(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings settings) {
         logger.debug("Writing HTML results");
-        String outFileName = ResultsWriterUtils.makeOutputFilename(analysis.getVcfPath(), settings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
+        Sample sample = analysisResults.getSample();
+        String outFileName = ResultsWriterUtils.makeOutputFilename(sample.getVcfPath(), settings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
         Path outFile = Paths.get(outFileName);
         try (BufferedWriter writer = Files.newBufferedWriter(outFile, StandardCharsets.UTF_8)) {
-            Context context = buildContext(modeOfInheritance, analysis, analysisResults, settings);
+            Context context = buildContext(modeOfInheritance, analysisResults, settings);
             templateEngine.process("results", context, writer);
         } catch (IOException ex) {
             logger.error("Unable to write results to file {}", outFileName, ex);
@@ -81,29 +92,20 @@ public class HtmlResultsWriter implements ResultsWriter {
     }
 
     @Override
-    public String writeString(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
+    public String writeString(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings settings) {
         logger.debug("Writing HTML results");
-        Context context = buildContext(modeOfInheritance, analysis, analysisResults, settings);
+        Context context = buildContext(modeOfInheritance, analysisResults, settings);
         return templateEngine.process("results", context);
     }
 
-    private Context buildContext(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
+    private Context buildContext(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings) {
         Context context = new Context();
-        //write the settings
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        //required for correct output of Path types
-        mapper.registerModule(new Jdk7Module());
-        mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        //avoids issues where there are oddities in the analysisSteps - none of these properly de/serialise at present
-        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        StringBuilder jsonSettings = new StringBuilder();
-        try {
-            jsonSettings.append(mapper.writeValueAsString(analysis));
-            jsonSettings.append(mapper.writeValueAsString(settings));
-        } catch (JsonProcessingException ex) {
-            logger.error("Unable to process JSON settings", ex);
-        }
-        context.setVariable("settings", jsonSettings.toString());
+
+        Analysis analysis = analysisResults.getAnalysis();
+        Sample sample = analysisResults.getSample();
+
+        String yamlString = toYamlJobString(sample, analysis, outputSettings);
+        context.setVariable("settings", yamlString);
 
         //make the user aware of any unanalysed variants
         List<VariantEvaluation> unAnalysedVarEvals = analysisResults.getUnAnnotatedVariantEvaluations();
@@ -117,24 +119,61 @@ public class HtmlResultsWriter implements ResultsWriter {
         List<VariantEffectCount> variantTypeCounters = ResultsWriterUtils.makeVariantEffectCounters(sampleNames, analysisResults
                 .getVariantEvaluations());
         String sampleName = "Anonymous";
-        if (!analysis.getProbandSampleName().isEmpty()) {
-            sampleName = analysis.getProbandSampleName();
+        if (!sample.getProbandSampleName().isEmpty()) {
+            sampleName = sample.getProbandSampleName();
         }
         context.setVariable("sampleName", sampleName);
         context.setVariable("sampleNames", sampleNames);
         context.setVariable("variantTypeCounters", variantTypeCounters);
 
         context.setVariable("modeOfInheritance", modeOfInheritance);
-        List<Gene> passedGenes = ResultsWriterUtils.getMaxPassedGenes(analysisResults.getGenes(), settings.getNumberOfGenesToShow());
-        context.setVariable("genes", passedGenes);
+        List<Gene> filteredGenes = outputSettings.filterPassedGenesForOutput(analysisResults.getGenes());
+        context.setVariable("genes", filteredGenes);
 
         //this will change the links to the relevant resource.
         // For the time being we're going to maintain the original behaviour (UCSC)
         // Need to wire it up through the system or it might be easiest to autodetect this from the transcripts of passed variants.
         // One of UCSC, ENSEMBL or REFSEQ
-        context.setVariable("transcriptDb", "ENSEMBL");
+        var transcriptDb = analysisResults.getContributingVariants().stream()
+                .flatMap(variantEvaluation -> variantEvaluation.getTranscriptAnnotations().stream())
+                .findFirst()
+                .map(TranscriptAnnotation::getAccession)
+                .map(value -> {
+                    if (value.startsWith("ENST")) {
+                        return "ENSEMBL";
+                    } else if (value.startsWith("uc")) {
+                        return "UCSC";
+                    } else if (value.startsWith("NM") || value.startsWith("NR") || value.startsWith("XM") || value.startsWith("XR")) {
+                        return "REFSEQ";
+                    }
+                    return "";
+                })
+                .orElse("ENSEMBL");
+        context.setVariable("transcriptDb", transcriptDb);
         context.setVariable("variantRankComparator", new VariantEvaluation.RankBasedComparator());
+        context.setVariable("pValueFormatter", new DecimalFormat("0.0E0"));
         return context;
+    }
+
+    String toYamlJobString(Sample sample, Analysis analysis, OutputSettings outputSettings) {
+        SampleProto.Sample protoSample = new SampleProtoConverter().toProto(sample);
+        AnalysisProto.Analysis protoAnalysis = new AnalysisProtoConverter().toProto(analysis);
+        OutputProto.OutputOptions protoOutputOptions = new OutputSettingsProtoConverter().toProto(outputSettings);
+
+        JobProto.Job protoJob = JobProto.Job.newBuilder()
+                .setSample(protoSample)
+                .setAnalysis(protoAnalysis)
+                .setOutputOptions(protoOutputOptions)
+                .build();
+
+        try {
+            String jsonString = JsonFormat.printer().print(protoJob);
+            JsonNode jsonNodeTree = new ObjectMapper().readTree(jsonString);
+            return new YAMLMapper().writeValueAsString(jsonNodeTree);
+        } catch (InvalidProtocolBufferException | JsonProcessingException e) {
+            logger.error("Unable to process JSON settings", e);
+        }
+        return "";
     }
 
 }

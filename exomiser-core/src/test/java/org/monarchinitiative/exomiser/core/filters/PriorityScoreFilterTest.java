@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ package org.monarchinitiative.exomiser.core.filters;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 import org.monarchinitiative.exomiser.core.prioritisers.MockPriorityResult;
@@ -45,7 +46,7 @@ public class PriorityScoreFilterTest {
     private PriorityScoreFilter instance;
 
     private final PriorityType priorityType = PriorityType.PHIVE_PRIORITY;
-    private final float minPriorityScore = 0.8f;
+    private final double minPriorityScore = 0.8;
 
     private Gene gene;
 
@@ -102,7 +103,7 @@ public class PriorityScoreFilterTest {
     
     @Test
     public void testRunFilterPassesGeneWithCorrectPriorityTypeScoreOverThreshold() {
-        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore + 0.2f);
+        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore + 0.2);
         gene.addPriorityResult(priorityResult);
 
         FilterResult result = instance.runFilter(gene);
@@ -112,7 +113,7 @@ public class PriorityScoreFilterTest {
     
     @Test
     public void testRunFilterFailsGeneWithCorrectPriorityTypeScoreUnderThreshold() {
-        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore - 0.2f);
+        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore - 0.2);
         gene.addPriorityResult(priorityResult);
 
         FilterResult result = instance.runFilter(gene);
@@ -122,9 +123,9 @@ public class PriorityScoreFilterTest {
     
     @Test
     public void testRunFilterVariantInFailedGeneAlsoFailsTheFilter() {
-        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore - 0.2f);
+        PriorityResult priorityResult = makeDefaultPriorityResult(minPriorityScore - 0.2);
         gene.addPriorityResult(priorityResult);
-        VariantEvaluation variant = VariantEvaluation.builder(1, 1, "A", "T").build();
+        VariantEvaluation variant = TestFactory.variantBuilder(1, 1, "A", "T").build();
         gene.addVariant(variant);
         
         FilterResult result = instance.runFilter(gene);
@@ -134,7 +135,7 @@ public class PriorityScoreFilterTest {
         assertThat(variant.getFailedFilterTypes(), hasItem(FilterType.PRIORITY_SCORE_FILTER));
     }
 
-    private PriorityResult makeDefaultPriorityResult(float score) {
+    private PriorityResult makeDefaultPriorityResult(double score) {
         return new MockPriorityResult(priorityType, gene.getEntrezGeneID(), gene.getGeneSymbol(), score);
     }
 
@@ -161,7 +162,7 @@ public class PriorityScoreFilterTest {
 
     @Test
     public void testNotEqualsDifferentScore() {
-        PriorityScoreFilter other = new PriorityScoreFilter(priorityType, minPriorityScore + .03f);
+        PriorityScoreFilter other = new PriorityScoreFilter(priorityType, minPriorityScore + .03);
         assertThat(instance.equals(other), is(false));
     }
     

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,8 +28,8 @@ package org.monarchinitiative.exomiser.core.writers;
 import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.prioritisers.HiPhivePriorityResult;
 import org.monarchinitiative.exomiser.core.prioritisers.OmimPriorityResult;
@@ -43,7 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -82,18 +82,21 @@ public class TsvGeneResultsWriter implements ResultsWriter {
                     "FISH_PPI_EVIDENCE"
             );
 
-    private final DecimalFormat decimalFormat = new DecimalFormat("0.0000");
+    private final NumberFormat decimalFormat;
 
     public TsvGeneResultsWriter() {
-        Locale.setDefault(Locale.UK);
+        decimalFormat = NumberFormat.getInstance(Locale.UK);
+        decimalFormat.setMinimumFractionDigits(4);
+        decimalFormat.setMaximumFractionDigits(4);
     }
 
     @Override
-    public void writeFile(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
-        String outFileName = ResultsWriterUtils.makeOutputFilename(analysis.getVcfPath(), settings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
+    public void writeFile(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings) {
+        Sample sample = analysisResults.getSample();
+        String outFileName = ResultsWriterUtils.makeOutputFilename(sample.getVcfPath(), outputSettings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
         Path outFile = Paths.get(outFileName);
         try (CSVPrinter printer = new CSVPrinter(Files.newBufferedWriter(outFile, StandardCharsets.UTF_8), format)) {
-            writeData(modeOfInheritance, analysisResults, printer);
+            writeData(modeOfInheritance, analysisResults, outputSettings, printer);
         } catch (IOException ex) {
             logger.error("Unable to write results to file {}", outFileName, ex);
         }
@@ -101,18 +104,18 @@ public class TsvGeneResultsWriter implements ResultsWriter {
     }
 
     @Override
-    public String writeString(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
+    public String writeString(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings) {
         StringBuilder stringBuilder = new StringBuilder();
         try (CSVPrinter printer = new CSVPrinter(stringBuilder, format)) {
-            writeData(modeOfInheritance, analysisResults, printer);
+            writeData(modeOfInheritance, analysisResults, outputSettings, printer);
         } catch (IOException ex) {
             logger.error("Unable to write results to string {}", stringBuilder, ex);
         }
         return stringBuilder.toString();
     }
 
-    private void writeData(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, CSVPrinter printer) throws IOException {
-        for (Gene gene : analysisResults.getGenes()) {
+    private void writeData(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings, CSVPrinter printer) throws IOException {
+        for (Gene gene : outputSettings.filterGenesForOutput(analysisResults.getGenes())) {
             if (gene.passedFilters() && gene.isCompatibleWith(modeOfInheritance)) {
                 List<String> geneRecord = makeGeneRecord(modeOfInheritance, gene);
                 printer.printRecord(geneRecord);

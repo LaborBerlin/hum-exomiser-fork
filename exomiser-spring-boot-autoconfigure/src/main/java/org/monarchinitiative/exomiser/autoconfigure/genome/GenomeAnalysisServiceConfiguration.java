@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,10 +22,14 @@ package org.monarchinitiative.exomiser.autoconfigure.genome;
 
 import de.charite.compbio.jannovar.data.JannovarData;
 import org.h2.mvstore.MVStore;
-import org.monarchinitiative.exomiser.core.genome.*;
+import org.monarchinitiative.exomiser.core.genome.GenomeAnalysisService;
+import org.monarchinitiative.exomiser.core.genome.GenomeDataService;
+import org.monarchinitiative.exomiser.core.genome.VariantAnnotator;
+import org.monarchinitiative.exomiser.core.genome.VariantDataService;
 import org.monarchinitiative.exomiser.core.genome.dao.AllelePropertiesDao;
 import org.monarchinitiative.exomiser.core.genome.dao.FrequencyDao;
 import org.monarchinitiative.exomiser.core.genome.dao.PathogenicityDao;
+import org.monarchinitiative.exomiser.core.genome.dao.VariantWhiteList;
 
 /**
  * Interface to mark classes from the {@link org.monarchinitiative.exomiser.core.genome} package which need to have
@@ -35,29 +39,33 @@ import org.monarchinitiative.exomiser.core.genome.dao.PathogenicityDao;
  */
 public interface GenomeAnalysisServiceConfiguration {
 
-    public JannovarData jannovarData();
+    JannovarData jannovarData();
 
-    public MVStore mvStore();
+    MVStore mvStore();
 
-    public VariantAnnotator variantAnnotator();
+    VariantAnnotator variantAnnotator();
 
-    public VariantFactory variantFactory();
+    GenomeDataService genomeDataService();
 
-    public GenomeDataService genomeDataService();
+    VariantDataService variantDataService();
 
-    public VariantDataService variantDataService();
+    VariantWhiteList variantWhiteList();
 
     //The classes below require Spring to managed the caching
-    public GenomeAnalysisService genomeAnalysisService();
+    GenomeAnalysisService genomeAnalysisService();
 
-    public AllelePropertiesDao allelePropertiesDao();
+    AllelePropertiesDao allelePropertiesDao();
 
-    public FrequencyDao localFrequencyDao();
+    FrequencyDao localFrequencyDao();
 
-    public PathogenicityDao remmDao();
+    PathogenicityDao remmDao();
 
-    public PathogenicityDao caddDao();
+    PathogenicityDao caddDao();
 
-    public PathogenicityDao testPathScoreDao();
+    PathogenicityDao testPathScoreDao();
 
+    // Structural Variant Dao
+    FrequencyDao svFrequencyDao();
+
+    PathogenicityDao svPathogenicityDao();
 }

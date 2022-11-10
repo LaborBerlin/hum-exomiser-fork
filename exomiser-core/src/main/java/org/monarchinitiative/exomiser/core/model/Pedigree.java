@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -92,6 +92,15 @@ public class Pedigree {
         return Pedigree.of(individual);
     }
 
+    public static Pedigree justProband(String id, Individual.Sex sex) {
+        Individual individual = Individual.builder()
+                .id(id)
+                .status(Individual.Status.AFFECTED)
+                .sex(sex)
+                .build();
+        return Pedigree.of(individual);
+    }
+
     public static Pedigree empty() {
         return EMPTY;
     }
@@ -130,6 +139,29 @@ public class Pedigree {
         return (int) individuals.stream().map(Individual::getFamilyId).distinct().count();
     }
 
+    public List<Pedigree.Individual> anscestorsOf(Pedigree.Individual individual) {
+        if (individual == null) {
+            return List.of();
+        }
+        String motherId = individual.getMotherId();
+        String fatherId = individual.getFatherId();
+        if (motherId.isEmpty() && fatherId.isEmpty()) {
+            return List.of();
+        }
+        ArrayList<Pedigree.Individual> ancestors = new ArrayList<>();
+        Individual mother = getIndividualById(motherId);
+        if (mother != null) {
+            ancestors.add(mother);
+            ancestors.addAll(anscestorsOf(mother));
+        }
+        Individual father = getIndividualById(fatherId);
+        if (father != null) {
+            ancestors.add(father);
+            ancestors.addAll(anscestorsOf(father));
+        }
+        return List.copyOf(ancestors);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -155,13 +187,13 @@ public class Pedigree {
         public enum Sex {
             UNKNOWN,
             MALE,
-            FEMALE;
+            FEMALE
         }
 
         public enum Status {
             UNKNOWN,
             UNAFFECTED,
-            AFFECTED;
+            AFFECTED
         }
 
         private final String familyId;

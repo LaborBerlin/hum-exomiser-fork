@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2022 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,20 +25,19 @@
  */
 package org.monarchinitiative.exomiser.core.prioritisers.dao;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.monarchinitiative.exomiser.core.prioritisers.model.Disease;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -50,41 +49,26 @@ public class DefaultDiseaseDao implements DiseaseDao {
 
     private final Logger logger = LoggerFactory.getLogger(DefaultDiseaseDao.class);
 
-    private final DataSource dataSource;
+    private final JdbcTemplate jdbcTemplate;
 
-    public DefaultDiseaseDao(DataSource phenotypeDataSource) {
-        this.dataSource = phenotypeDataSource;
+    public DefaultDiseaseDao(@Qualifier("phenotypeDataSource") DataSource phenotypeDataSource) {
+        this.jdbcTemplate = new JdbcTemplate(phenotypeDataSource);
     }
 
     @Cacheable(value = "diseaseHp")
     @Override
     public Set<String> getHpoIdsForDiseaseId(String diseaseId) {
-        try (Connection connection = dataSource.getConnection()) {
-            try (PreparedStatement statement = connection.prepareStatement("SELECT hp_id FROM disease_hp WHERE disease_id = ?")) {
-                statement.setString(1, diseaseId);
-                ResultSet rs = statement.executeQuery();
-                Set<String> diseaseHpoIds = parseHpoIds(rs);
-                logger.info("{} HPO ids retrieved for disease {} - {}", diseaseHpoIds.size(), diseaseId, diseaseHpoIds);
-                return diseaseHpoIds;
-
-            }
-        } catch (SQLException e) {
-            logger.error("Unable to retrieve HPO terms for disease {}", diseaseId, e);
-        }
-        return Collections.emptySet();
+        String query = "SELECT hp_id FROM disease_hp WHERE disease_id = ?";
+        return jdbcTemplate.query(query, this::parseHpoIds, diseaseId);
     }
 
     private Set<String> parseHpoIds(ResultSet rs) throws SQLException {
         if (rs.next()) {
             String hpoListString = rs.getString("hp_id");
             String[] hpoArray = hpoListString.split(",");
-            ImmutableSet.Builder<String> hpoIdSetBuilder = new ImmutableSet.Builder<>();
-            for (String string : hpoArray) {
-                hpoIdSetBuilder.add(string.trim());
-            }
-            return hpoIdSetBuilder.build();
+            return ImmutableSet.copyOf(hpoArray);
         }
-        return Collections.emptySet();
+        return Set.of();
     }
 
     @Cacheable(value = "diseases")
@@ -95,43 +79,33 @@ public class DefaultDiseaseDao implements DiseaseDao {
                 ", symbol AS human_gene_symbol" +
                 ", d.disease_id AS disease_id" +
                 ", d.diseasename AS disease_name" +
-                ", d.TYPE AS disease_type" +
-                ", d.INHERITANCE AS inheritance_code" +
+                ", d.type AS disease_type" +
+                ", d.inheritance AS inheritance_code" +
                 ", hp_id AS pheno_ids " +
                 "FROM entrez2sym e, disease_hp dhp, disease d " +
-                "WHERE dhp.disease_id = d.DISEASE_ID " +
-                "AND e.entrezid = d.GENE_ID " +
-                "AND d.TYPE in ('D', 'C', 'S', '?')" +
-                "AND d.GENE_ID = ?";
-
-        try (Connection connection = dataSource.getConnection()) {
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                statement.setInt(1, geneId);
-                ResultSet rs = statement.executeQuery();
-                return processDiseaseResults(rs);
-
-            }
-        } catch (SQLException e) {
-            logger.error("Unable to execute query '{}' for geneId: '{}'", query, geneId, e);
-        }
-        return Collections.emptyList();
+                "WHERE dhp.disease_id = d.disease_id " +
+                "AND e.entrezid = d.gene_id " +
+                "AND d.type in ('D', 'C', 'S', '?')" +
+                "AND d.gene_id = ?";
+        return jdbcTemplate.query(query, diseaseRowMapper, geneId);
     }
 
-    private List<Disease> processDiseaseResults(ResultSet rs) throws SQLException {
-        ImmutableList.Builder<Disease> listBuilder = ImmutableList.builder();
-        while (rs.next()) {
-            List<String> phenotypes = ImmutableList.copyOf(rs.getString("pheno_ids").split(","));
-            Disease disease = Disease.builder()
-                    .diseaseId(rs.getString("disease_id"))
-                    .diseaseName(rs.getString("disease_name"))
-                    .associatedGeneId(rs.getInt("entrez_id"))
-                    .associatedGeneSymbol(rs.getString("human_gene_symbol"))
-                    .inheritanceModeCode(rs.getString("inheritance_code"))
-                    .diseaseTypeCode(rs.getString("disease_type"))
-                    .phenotypeIds(phenotypes)
-                    .build();
-            listBuilder.add(disease);
-        }
-        return listBuilder.build();
+    private final RowMapper<Disease> diseaseRowMapper = (ResultSet rs, int rowNum) -> {
+        List<String> phenotypes = List.of(rs.getString("pheno_ids").split(","));
+        return Disease.builder()
+                .diseaseId(rs.getString("disease_id"))
+                .diseaseName(rs.getString("disease_name"))
+                .associatedGeneId(rs.getInt("entrez_id"))
+                .associatedGeneSymbol(rs.getString("human_gene_symbol"))
+                .inheritanceModeCode(formatInheritanceCode(rs.getString("inheritance_code")))
+                .diseaseTypeCode(rs.getString("disease_type"))
+                .phenotypeIds(phenotypes)
+                .build();
+    };
+
+    // work-around for the inheritance code being defined as a char and interpreted as a char2 which will contain whitespace
+    // this should be set to varchar(2). Not trimming the inheritanceCode results in all inheritance modes being UNKNOWN.
+    private String formatInheritanceCode(String inheritanceCode) {
+        return inheritanceCode == null ? "U" : inheritanceCode.trim();
     }
 }

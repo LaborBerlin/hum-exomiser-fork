@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ import de.charite.compbio.jannovar.mendel.ModeOfInheritance;
 import htsjdk.variant.variantcontext.VariantContext;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.monarchinitiative.exomiser.core.analysis.Analysis;
 import org.monarchinitiative.exomiser.core.analysis.AnalysisResults;
+import org.monarchinitiative.exomiser.core.analysis.sample.Sample;
 import org.monarchinitiative.exomiser.core.filters.FilterType;
 import org.monarchinitiative.exomiser.core.model.Gene;
 import org.monarchinitiative.exomiser.core.model.GeneScore;
@@ -68,18 +68,19 @@ public class TsvVariantResultsWriter implements ResultsWriter {
                     "EXAC_AFR_FREQ", "EXAC_AMR_FREQ", "EXAC_EAS_FREQ", "EXAC_FIN_FREQ", "EXAC_NFE_FREQ", "EXAC_SAS_FREQ", "EXAC_OTH_FREQ",
                     "EXOMISER_VARIANT_SCORE", "EXOMISER_GENE_PHENO_SCORE", "EXOMISER_GENE_VARIANT_SCORE", "EXOMISER_GENE_COMBINED_SCORE", "CONTRIBUTING_VARIANT");
 
-    private final DecimalFormat formatter = new DecimalFormat(".##");
+    private final DecimalFormat formatter = new DecimalFormat(".####");
 
     public TsvVariantResultsWriter() {
         Locale.setDefault(Locale.UK);
     }
 
     @Override
-    public void writeFile(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
-        String outFileName = ResultsWriterUtils.makeOutputFilename(analysis.getVcfPath(), settings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
+    public void writeFile(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings) {
+        Sample sample = analysisResults.getSample();
+        String outFileName = ResultsWriterUtils.makeOutputFilename(sample.getVcfPath(), outputSettings.getOutputPrefix(), OUTPUT_FORMAT, modeOfInheritance);
         Path outFile = Paths.get(outFileName);
         try (CSVPrinter printer = new CSVPrinter(Files.newBufferedWriter(outFile, StandardCharsets.UTF_8), format)) {
-            writeData(modeOfInheritance, analysis, analysisResults, settings.outputContributingVariantsOnly(), printer);
+            writeData(modeOfInheritance, analysisResults, outputSettings, printer);
         } catch (IOException ex) {
             logger.error("Unable to write results to file {}", outFileName, ex);
         }
@@ -87,27 +88,28 @@ public class TsvVariantResultsWriter implements ResultsWriter {
     }
 
     @Override
-    public String writeString(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults, OutputSettings settings) {
+    public String writeString(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults, OutputSettings outputSettings) {
         StringBuilder output = new StringBuilder();
         try (CSVPrinter printer = new CSVPrinter(output, format)) {
-            writeData(modeOfInheritance, analysis, analysisResults, settings.outputContributingVariantsOnly(), printer);
+            writeData(modeOfInheritance, analysisResults, outputSettings, printer);
         } catch (IOException ex) {
             logger.error("Unable to write results to string {}", output, ex);
         }
         return output.toString();
     }
 
-    private void writeData(ModeOfInheritance modeOfInheritance, Analysis analysis, AnalysisResults analysisResults,
-                           boolean writeOnlyContributingVariants, CSVPrinter printer) throws IOException {
-        if (writeOnlyContributingVariants) {
+    private void writeData(ModeOfInheritance modeOfInheritance, AnalysisResults analysisResults,
+                           OutputSettings outputSettings, CSVPrinter printer) throws IOException {
+        List<Gene> passedGenes = outputSettings.filterGenesForOutput(analysisResults.getGenes());
+        if (outputSettings.outputContributingVariantsOnly()) {
             logger.debug("Writing out only CONTRIBUTING variants");
-            for (Gene gene : analysisResults.getGenes()) {
+            for (Gene gene : passedGenes) {
                 if (gene.passedFilters() && gene.isCompatibleWith(modeOfInheritance)) {
                     writeOnlyContributingVariantsOfGene(modeOfInheritance, gene, printer);
                 }
             }
         } else {
-            for (Gene gene : analysisResults.getGenes()) {
+            for (Gene gene : passedGenes) {
                 writeAllVariantsOfGene(modeOfInheritance, gene, printer);
             }
         }
@@ -133,13 +135,13 @@ public class TsvVariantResultsWriter implements ResultsWriter {
         List<Object> record = new ArrayList<>();
         VariantContext variantContext = ve.getVariantContext();
         // CHROM
-        record.add(ve.getChromosomeName());
+        record.add(ve.contigName());
         // POS
-        record.add(ve.getPosition());
+        record.add(ve.start());
         // REF
-        record.add(ve.getRef());
+        record.add(ve.ref());
         // ALT
-        record.add(ve.getAlt());
+        record.add(ve.alt());
         // QUAL
         record.add(formatter.format(ve.getPhredScore()));
         // FILTER
@@ -153,7 +155,7 @@ public class TsvVariantResultsWriter implements ResultsWriter {
         // HGVS
         record.add(getRepresentativeAnnotation(ve.getTranscriptAnnotations()));
         // EXOMISER_GENE
-        record.add(ve.getGeneSymbol());
+        record.add(dotIfEmpty(ve.getGeneSymbol()));
         PathogenicityData pathogenicityData = ve.getPathogenicityData();
         // CADD
         record.add(getPathScore(pathogenicityData.getPredictedScore(PathogenicitySource.CADD)));
@@ -183,7 +185,7 @@ public class TsvVariantResultsWriter implements ResultsWriter {
 
     private void addFrequencyData(FrequencyData frequencyData, List<Object> record) {
         // DBSNP_ID
-        record.add(dotIfNull(frequencyData.getRsId()));
+        record.add(dotIfEmpty(frequencyData.getRsId()));
         // MAX_FREQUENCY
         record.add(dotIfNull(frequencyData.getMaxFreq()));
         // Don't change the order of these - it's necessary for the data to end up in the correct column
@@ -199,28 +201,20 @@ public class TsvVariantResultsWriter implements ResultsWriter {
         }
     }
 
+    private String dotIfEmpty(String id) {
+        return id.isEmpty() ? "." : id;
+    }
+
     private Object dotIfNull(Object o) {
-        if (o == null) {
-            return ".";
-        } else {
-            return o;
-        }
+        return o == null ? "." : o;
     }
 
     private Object dotIfFrequencyNull(Frequency frequency) {
-        if (frequency == null) {
-            return ".";
-        } else {
-            return frequency.getFrequency();
-        }
+        return frequency == null ? "." : frequency.getFrequency();
     }
 
     private Object getPathScore(PathogenicityScore score) {
-        if (score == null) {
-            return ".";
-        } else {
-            return score.getScore();
-        }
+        return score == null ? "." : score.getScore();
     }
 
     private String makeFiltersField(ModeOfInheritance modeOfInheritance, VariantEvaluation variantEvaluation) {
@@ -241,7 +235,7 @@ public class TsvVariantResultsWriter implements ResultsWriter {
     private String formatFailedFilters(Set<FilterType> failedFilters) {
         StringJoiner stringJoiner = new StringJoiner(";");
         for (FilterType filterType : failedFilters) {
-            stringJoiner.add(filterType.toVcfValue());
+            stringJoiner.add(filterType.vcfValue());
         }
         return stringJoiner.toString();
     }

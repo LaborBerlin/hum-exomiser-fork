@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2020 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -30,11 +30,9 @@ import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 /**
  * @since 7.0.0
@@ -51,11 +49,8 @@ class PassOnlyAnalysisRunner extends AbstractAnalysisRunner {
         return variantEvaluation -> {
             //Only load the variant if the gene has passed the other filters
             //this should drastically reduce the number of collected variants
-            if(genes.containsKey(variantEvaluation.getGeneSymbol())) {
-                Gene gene = genes.get(variantEvaluation.getGeneSymbol());
-                return gene.passedFilters();
-            }
-            return false;
+            Gene gene = genes.get(variantEvaluation.getGeneSymbol());
+            return gene != null && gene.passedFilters();
         };
     }
 
@@ -74,15 +69,16 @@ class PassOnlyAnalysisRunner extends AbstractAnalysisRunner {
     }
 
     @Override
-    protected Stream<Gene> getGenesWithVariants(Map<String, Gene> allGenes) {
+    protected List<Gene> getGenesWithVariants(Map<String, Gene> allGenes) {
         return allGenes.values()
                 .stream()
+                .map(removeFailedVariants())
                 .filter(Gene::hasVariants)
                 .filter(Gene::passedFilters)
-                .map(removeFailedVariants());
+                .collect(Collectors.toUnmodifiableList());
     }
 
-    private Function<Gene, Gene> removeFailedVariants() {
+    private UnaryOperator<Gene> removeFailedVariants() {
         return gene -> {
             gene.getVariantEvaluations().removeIf(variantFailedFilters());
             return gene;
@@ -97,6 +93,6 @@ class PassOnlyAnalysisRunner extends AbstractAnalysisRunner {
     protected List<VariantEvaluation> getFinalVariantList(List<VariantEvaluation> variants) {
         return variants.stream()
                 .filter(VariantEvaluation::passedFilters)
-                .collect(toList());
+                .collect(Collectors.toUnmodifiableList());
     }
 }

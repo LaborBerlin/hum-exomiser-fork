@@ -2,7 +2,7 @@
 <!--
   ~ The Exomiser - A tool to annotate and prioritize genomic variants
   ~
-  ~ Copyright (c) 2016-2019 Queen Mary University of London.
+  ~ Copyright (c) 2016-2022 Queen Mary University of London.
   ~ Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
   ~
   ~ This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@
 
     <groupId>org.monarchinitiative.exomiser</groupId>
     <artifactId>exomiser</artifactId>
-    <version>12.1.1</version>
+    <version>13.1.0</version>
     <packaging>pom</packaging>
 
     <name>exomiser</name>
@@ -84,27 +84,30 @@
     </modules>
 
     <properties>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm</maven.build.timestamp.format>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.organization>The Monarch Initiative</project.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.organization>exomiser</sonar.organization>
         <sonar.language>java</sonar.language>
-        <jannovar.version>0.28</jannovar.version>
-        <htsjdk.version>2.18.2</htsjdk.version>
-        <guava.version>22.0</guava.version>
-        <protobuf.version>3.16.3</protobuf.version>
-        <spring-boot.version>2.1.3.RELEASE</spring-boot.version>
+        <jannovar.version>0.30</jannovar.version>
+        <svart.version>1.0.2</svart.version>
+        <htsjdk.version>2.24.1</htsjdk.version>
+        <guava.version>31.1-jre</guava.version>
+        <protobuf.version>3.18.2</protobuf.version>
+        <spring-boot.version>2.6.9</spring-boot.version>
+        <docker.base.image>
+            gcr.io/distroless/java17@sha256:ab37242e81cbc031b2600eef4440fe87055a05c14b40686df85078cc5086c98f
+        </docker.base.image>
     </properties>
  
     <repositories>
         <repository>
+            <!-- Required for ontologizer and javautil dependency in Phenix. Consider upgrading to Phenol -->
             <id>sonumina</id>
             <url>http://sonumina.de/maven</url>
-        </repository>
-        <repository>
-            <id>compbio</id>
-            <url>http://compbio.charite.de/tl_files/maven</url>
         </repository>
     </repositories>
 
@@ -121,6 +124,11 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>org.monarchinitiative.svart</groupId>
+            <artifactId>svart</artifactId>
+            <version>${svart.version}</version>
+        </dependency>
         <!--DI framework -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -149,11 +157,11 @@
             <artifactId>h2</artifactId>
         </dependency>
         <!--https://github.com/brettwooldridge/HikariCP/wiki/FAQ#q-how-to-i-properly-enable-preparedstatement-caching-for-postgresql-->
-        <dependency>
-            <groupId>com.impossibl.pgjdbc-ng</groupId>
-            <artifactId>pgjdbc-ng</artifactId>
-            <version>0.4</version>
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>com.impossibl.pgjdbc-ng</groupId>-->
+        <!--            <artifactId>pgjdbc-ng</artifactId>-->
+        <!--            <version>0.4</version>-->
+        <!--        </dependency>-->
         <!--HikariCP is a "zero-overhead" production ready JDBC connection pool.
         https://github.com/brettwooldridge/HikariCP -->
         <dependency>
@@ -191,36 +199,20 @@
 
         <!--Test dependencies-->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit-pioneer</groupId>
-            <artifactId>junit-pioneer</artifactId>
-            <version>0.1.2</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.vintage</groupId>
+                    <artifactId>junit-vintage-engine</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Required to run Mockito with JUnit Jupiter-->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>2.21.0</version>
             <scope>test</scope>
         </dependency>
         <!-- ByteBuddy 1.9.0+ required for compiling on Java 11 -->
@@ -234,9 +226,15 @@
     <build>
         <plugins>
             <plugin>
+                <!-- n.b. the wrapper plugin is completely broken and will only work on Maven 3.7.0+ -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-wrapper-plugin</artifactId>
+                <version>3.0.1</version>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.0</version>
+                <version>3.8.1</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -245,56 +243,79 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.0</version>
+                <version>3.0.0-M5</version>
                 <!-- Don't enable parallel tests as these will fail in the autoconfigure module due to MVStore
                 only being able to be opened once by any given JVM -->
+                <!--                <configuration>-->
+                <!--                    <forkCount>0</forkCount>-->
+                <!--                </configuration>-->
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.7.0.1746</version>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.2</version>
-                <configuration>
-                    <excludes>
-                        <exclude>**/resources/**</exclude>
-                        <exclude>**/assemble/**</exclude>
-                    </excludes>
-                </configuration>
+                <version>0.8.7</version>
                 <executions>
                     <execution>
-                        <id>default-prepare-agent</id>
+                        <id>prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>default-report</id>
+                        <id>report</id>
                         <phase>prepare-package</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                     </execution>
                     <execution>
-                        <id>default-check</id>
+                        <id>post-unit-test</id>
+                        <phase>test</phase>
                         <goals>
-                            <goal>check</goal>
+                            <goal>report</goal>
                         </goals>
                         <configuration>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>COMPLEXITY</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <!--<minimum>0.60</minimum>-->
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
+                            <!-- Sets the path to the file which contains the execution data. -->
+                            <dataFile>target/jacoco.exec</dataFile>
+                            <!-- Sets the output directory for the code coverage report. -->
+                            <!-- will default to target/site/jacoco which is used by sonar -->
+                            <!-- <outputDirectory>target/jacoco-reports</outputDirectory> -->
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,8 +20,11 @@
 
 package org.monarchinitiative.exomiser.core.model;
 
-import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import java.util.List;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,20 +42,21 @@ public class SampleGenotypeTest {
 
     @Test
     public void testHetUnphased() {
-        assertThat(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT).getCalls(), equalTo(ImmutableList.of(AlleleCall.REF, AlleleCall.ALT)));
-        assertThat(SampleGenotype.of(AlleleCall.ALT, AlleleCall.REF).getCalls(), equalTo(ImmutableList.of(AlleleCall.REF, AlleleCall.ALT)));
+        assertThat(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT).getCalls(), equalTo(List.of(AlleleCall.REF, AlleleCall.ALT)));
+        assertThat(SampleGenotype.of(AlleleCall.ALT, AlleleCall.REF).getCalls(), equalTo(List.of(AlleleCall.REF, AlleleCall.ALT)));
     }
 
     @Test
     public void testHetPhased() {
-        assertThat(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT).getCalls(), equalTo(ImmutableList.of(AlleleCall.REF, AlleleCall.ALT)));
-        assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.REF).getCalls(), equalTo(ImmutableList.of(AlleleCall.ALT, AlleleCall.REF)));
+        assertThat(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT).getCalls(), equalTo(List.of(AlleleCall.REF, AlleleCall.ALT)));
+        assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.REF).getCalls(), equalTo(List.of(AlleleCall.ALT, AlleleCall.REF)));
     }
 
     @Test
     public void testToString() {
-        assertThat(SampleGenotype.empty().toString(), equalTo("NA"));
+        assertThat(SampleGenotype.empty().toString(), equalTo("."));
 
+        // unphased
         assertThat(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.NO_CALL).toString(), equalTo("./."));
         assertThat(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.REF).toString(), equalTo("./0"));
         assertThat(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.ALT).toString(), equalTo("./1"));
@@ -69,7 +73,7 @@ public class SampleGenotypeTest {
         assertThat(SampleGenotype.of(AlleleCall.OTHER_ALT, AlleleCall.ALT).toString(), equalTo("-/1"));
         assertThat(SampleGenotype.of(AlleleCall.OTHER_ALT, AlleleCall.OTHER_ALT).toString(), equalTo("-/-"));
 
-
+        // phased
         assertThat(SampleGenotype.phased(AlleleCall.NO_CALL, AlleleCall.NO_CALL).toString(), equalTo(".|."));
         assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.NO_CALL).toString(), equalTo("1|."));
         assertThat(SampleGenotype.phased(AlleleCall.NO_CALL, AlleleCall.REF).toString(), equalTo(".|0"));
@@ -85,7 +89,6 @@ public class SampleGenotypeTest {
         assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.OTHER_ALT).toString(), equalTo("1|-"));
         assertThat(SampleGenotype.phased(AlleleCall.OTHER_ALT, AlleleCall.ALT).toString(), equalTo("-|1"));
         assertThat(SampleGenotype.phased(AlleleCall.OTHER_ALT, AlleleCall.OTHER_ALT).toString(), equalTo("-|-"));
-
     }
 
     @Test
@@ -161,13 +164,27 @@ public class SampleGenotypeTest {
 
     @Test
     public void testTriploid() {
-        assertThat(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.NO_CALL, AlleleCall.NO_CALL).toString(), equalTo("././."));
+        assertThat(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.NO_CALL, AlleleCall.NO_CALL)
+                .toString(), equalTo("././."));
         assertThat(SampleGenotype.of(AlleleCall.ALT, AlleleCall.REF, AlleleCall.ALT).toString(), equalTo("0/1/1"));
         assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.REF, AlleleCall.ALT).toString(), equalTo("1|0|1"));
     }
 
     @Test
-    public void testEquals(){
+    void testNumCalls() {
+        assertThat(SampleGenotype.empty().numCalls(), equalTo(0));
+        SampleGenotype monoploid = SampleGenotype.of(AlleleCall.REF);
+        assertThat(monoploid.numCalls(), equalTo(1));
+
+        SampleGenotype diploid = SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT);
+        assertThat(diploid.numCalls(), equalTo(2));
+
+        SampleGenotype triploid = SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.NO_CALL, AlleleCall.NO_CALL);
+        assertThat(triploid.numCalls(), equalTo(3));
+    }
+
+    @Test
+    public void testEquals() {
         assertThat(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT), equalTo(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT)));
         assertThat(SampleGenotype.of(AlleleCall.ALT, AlleleCall.REF), equalTo(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT)));
 
@@ -175,5 +192,86 @@ public class SampleGenotypeTest {
         assertThat(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.REF), not(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT)));
 
         assertThat(SampleGenotype.of(AlleleCall.ALT, AlleleCall.REF), not(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT)));
+    }
+
+    @Test
+    void testParseGenotype() {
+        // empty
+        assertThat(SampleGenotype.parseGenotype(null), equalTo(SampleGenotype.empty()));
+        assertThat(SampleGenotype.parseGenotype(""), equalTo(SampleGenotype.empty()));
+        assertThat(SampleGenotype.parseGenotype("NA"), equalTo(SampleGenotype.empty()));
+        assertThat(SampleGenotype.parseGenotype("."), equalTo(SampleGenotype.empty()));
+
+        // no call
+        assertThat(SampleGenotype.parseGenotype("null"), equalTo(SampleGenotype.empty()));
+
+        // monoploid
+        assertThat(SampleGenotype.parseGenotype("-"), equalTo(SampleGenotype.of(AlleleCall.OTHER_ALT)));
+        assertThat(SampleGenotype.parseGenotype("0"), equalTo(SampleGenotype.of(AlleleCall.REF)));
+        assertThat(SampleGenotype.parseGenotype("1"), equalTo(SampleGenotype.of(AlleleCall.ALT)));
+
+        // diploid
+        assertThat(SampleGenotype.parseGenotype("1/-"), equalTo(SampleGenotype.of(AlleleCall.ALT, AlleleCall.OTHER_ALT)));
+        assertThat(SampleGenotype.parseGenotype("./."), equalTo(SampleGenotype.noCall()));
+        assertThat(SampleGenotype.parseGenotype("0/0"), equalTo(SampleGenotype.homRef()));
+        assertThat(SampleGenotype.parseGenotype("0/1"), equalTo(SampleGenotype.het()));
+        assertThat(SampleGenotype.parseGenotype("1/1"), equalTo(SampleGenotype.homAlt()));
+
+        // diploid phased
+        assertThat(SampleGenotype.parseGenotype("1|-"), equalTo(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.OTHER_ALT)));
+        assertThat(SampleGenotype.parseGenotype(".|."), equalTo(SampleGenotype.phased(AlleleCall.NO_CALL, AlleleCall.NO_CALL)));
+        assertThat(SampleGenotype.parseGenotype("0|0"), equalTo(SampleGenotype.phased(AlleleCall.REF, AlleleCall.REF)));
+        assertThat(SampleGenotype.parseGenotype("0|1"), equalTo(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT)));
+        assertThat(SampleGenotype.parseGenotype("1|0"), equalTo(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.REF)));
+        assertThat(SampleGenotype.parseGenotype("1|1"), equalTo(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.ALT)));
+        assertThat(SampleGenotype.parseGenotype("1|2"), equalTo(SampleGenotype.phased(AlleleCall.ALT, AlleleCall.OTHER_ALT)));
+
+        // triploid
+        assertThat(SampleGenotype.parseGenotype("-/-/-"), equalTo(SampleGenotype.of(AlleleCall.OTHER_ALT, AlleleCall.OTHER_ALT, AlleleCall.OTHER_ALT)));
+        assertThat(SampleGenotype.parseGenotype("././."), equalTo(SampleGenotype.of(AlleleCall.NO_CALL, AlleleCall.NO_CALL, AlleleCall.NO_CALL)));
+        assertThat(SampleGenotype.parseGenotype("0/1/0"), equalTo(SampleGenotype.of(AlleleCall.REF, AlleleCall.ALT, AlleleCall.REF)));
+        assertThat(SampleGenotype.parseGenotype("1/1/1"), equalTo(SampleGenotype.of(AlleleCall.ALT, AlleleCall.ALT, AlleleCall.ALT)));
+        assertThat(SampleGenotype.parseGenotype("0|1|0"), equalTo(SampleGenotype.phased(AlleleCall.REF, AlleleCall.ALT, AlleleCall.REF)));
+    }
+
+    @Test
+    void testIsNoCall() {
+        assertThat(SampleGenotype.parseGenotype("").isNoCall(), equalTo(true));
+        assertThat(SampleGenotype.parseGenotype(".").isNoCall(), equalTo(true));
+        assertThat(SampleGenotype.parseGenotype("./.").isNoCall(), equalTo(true));
+        assertThat(SampleGenotype.parseGenotype("././.").isNoCall(), equalTo(true));
+
+        assertThat(SampleGenotype.parseGenotype("-").isNoCall(), equalTo(false));
+        assertThat(SampleGenotype.parseGenotype("0/1").isNoCall(), equalTo(false));
+        assertThat(SampleGenotype.parseGenotype("1/1/2").isNoCall(), equalTo(false));
+    }
+
+    private boolean possibleDeNovo(SampleGenotype ancestorGenotype, SampleGenotype probandGenotype) {
+        return (ancestorGenotype.isNoCall() || ancestorGenotype.isHomRef()) && (probandGenotype.isHet() || probandGenotype.isHomAlt());
+    }
+
+    private boolean familyHistoryOfAllele(SampleGenotype ancestorGenotype, SampleGenotype probandGenotype) {
+        return (ancestorGenotype.isHet() || ancestorGenotype.isHomAlt()) && (probandGenotype.isHet() || probandGenotype.isHomAlt());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "., 0/1, true",
+            "./., 0/1, true",
+            "./., 0/0, false",
+            "./1, 0/0, false",
+            "./1, 0/1, false",
+            "./1, 1/1, false",
+            "1/1, 1/1, false",
+           // "1/1, 0/0, true", this should return true, but is currently broken. However, Exomiser will remove 0/0 proband variants.
+            "0/1, 1/1, false",
+            "0/1, 0/1, false",
+            "0/1, 0/0, false",
+            "0/0, 0/1, true",
+    })
+    void testPossibleDeNovo(String parent, String proband, boolean possibleDeNovo) {
+        SampleGenotype parentGenotype = SampleGenotype.parseGenotype(parent);
+        SampleGenotype probandGenotype = SampleGenotype.parseGenotype(proband);
+        assertThat(possibleDeNovo(parentGenotype, probandGenotype), is(possibleDeNovo));
     }
 }

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,9 +27,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 
 /**
  * @author Jules Jacobsen <j.jacobsen@qmul.ac.uk>
@@ -86,7 +86,6 @@ public class AlleleTest {
     public void testAddValue() {
         Allele instance = new Allele(1, 123456, "A", "C");
         instance.addValue(AlleleProperty.KG, 0.12f);
-        System.out.println(instance);
         assertThat(instance.getValue(AlleleProperty.KG), equalTo(0.12f));
         assertThat(instance.getValues().size(), equalTo(1));
     }
@@ -98,8 +97,4 @@ public class AlleleTest {
         assertThat(instance0, equalTo(instance1));
     }
 
-    @Test
-    public void testToString() {
-        System.out.println(new Allele(1, 123435, "A", "C"));
-    }
 }

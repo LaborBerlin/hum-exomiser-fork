@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2018 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -28,10 +28,13 @@ package org.monarchinitiative.exomiser.core.filters;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.monarchinitiative.exomiser.core.genome.TestFactory;
 import org.monarchinitiative.exomiser.core.model.VariantEvaluation;
 
 import java.util.ArrayList;
@@ -46,10 +49,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 /**
  * @author Jules Jacobsen <jules.jacobsen@sanger.ac.uk>
  */
+@ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class SparseVariantFilterRunnerTest {
 
-    private SparseVariantFilterRunner instance = new SparseVariantFilterRunner();
+    private final SparseVariantFilterRunner instance = new SparseVariantFilterRunner();
 
     @Mock
     private VariantEffectFilter variantEffectFilter;
@@ -70,10 +74,10 @@ public class SparseVariantFilterRunnerTest {
     @BeforeEach
     public void setUp() {
 
-        passesAllFilters = VariantEvaluation.builder(1, 1, "A", "T").build();
-        failsAllFilters = VariantEvaluation.builder(2, 2, "A", "T").build();
-        passesQualityFrequencyFilter = VariantEvaluation.builder(3, 3, "A", "T").build();
-        passesTargetQualityFilter = VariantEvaluation.builder(4, 4, "A", "T").build();
+        passesAllFilters = TestFactory.variantBuilder(1, 1, "A", "T").build();
+        failsAllFilters = TestFactory.variantBuilder(2, 2, "A", "T").build();
+        passesQualityFrequencyFilter = TestFactory.variantBuilder(3, 3, "A", "T").build();
+        passesTargetQualityFilter = TestFactory.variantBuilder(4, 4, "A", "T").build();
 
         makeVariantEvaluations();
 

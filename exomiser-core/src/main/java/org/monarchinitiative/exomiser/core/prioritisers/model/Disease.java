@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,14 +20,15 @@
 
 package org.monarchinitiative.exomiser.core.prioritisers.model;
 
-import java.util.ArrayList;
+import org.monarchinitiative.exomiser.core.phenotype.Model;
+
 import java.util.List;
 import java.util.Objects;
 
 /**
  * @author Jules Jacobsen <jules.jacobsen@sanger.ac.uk>
  */
-public final class Disease {
+public final class Disease implements Model {
 
     public enum DiseaseType {
 
@@ -81,7 +82,7 @@ public final class Disease {
         this.associateGeneSymbol = builder.humanGeneSymbol;
         this.diseaseType = builder.diseaseType;
         this.inheritanceMode = builder.inheritanceMode;
-        this.phenotypeIds = builder.phenotypeIds;
+        this.phenotypeIds = List.copyOf(builder.phenotypeIds);
     }
 
     public String getDiseaseId() {
@@ -108,6 +109,12 @@ public final class Disease {
         return inheritanceMode;
     }
 
+    @Override
+    public String getId() {
+        return diseaseId;
+    }
+
+    @Override
     public List<String> getPhenotypeIds() {
         return phenotypeIds;
     }
@@ -160,18 +167,18 @@ public final class Disease {
         private DiseaseType diseaseType = DiseaseType.UNCONFIRMED;
         private InheritanceMode inheritanceMode = InheritanceMode.UNKNOWN;
 
-        private List<String> phenotypeIds = new ArrayList<>();
+        private List<String> phenotypeIds = List.of();
 
         private Builder() {
         }
 
         public Builder diseaseId(String diseaseId) {
-            this.diseaseId = diseaseId;
+            this.diseaseId = Objects.requireNonNullElse(diseaseId, "");
             return this;
         }
 
         public Builder diseaseName(String diseaseName) {
-            this.diseaseName = diseaseName;
+            this.diseaseName = Objects.requireNonNullElse(diseaseName, "");
             return this;
         }
 
@@ -181,12 +188,12 @@ public final class Disease {
         }
 
         public Builder associatedGeneSymbol(String humanGeneSymbol) {
-            this.humanGeneSymbol = humanGeneSymbol;
+            this.humanGeneSymbol = Objects.requireNonNullElse(humanGeneSymbol, "");
             return this;
         }
 
         public Builder diseaseType(DiseaseType diseaseType) {
-            this.diseaseType = diseaseType;
+            this.diseaseType = Objects.requireNonNullElse(diseaseType, DiseaseType.UNCONFIRMED);
             return this;
         }
 
@@ -196,7 +203,7 @@ public final class Disease {
         }
 
         public Builder inheritanceMode(InheritanceMode inheritanceMode) {
-            this.inheritanceMode = inheritanceMode;
+            this.inheritanceMode = Objects.requireNonNullElse(inheritanceMode, InheritanceMode.UNKNOWN);
             return this;
         }
 
@@ -206,7 +213,7 @@ public final class Disease {
         }
 
         public Builder phenotypeIds(List<String> phenotypeIds) {
-            this.phenotypeIds = phenotypeIds;
+            this.phenotypeIds = Objects.requireNonNullElse(phenotypeIds, List.of());
             return this;
         }
 

@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -37,10 +37,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
-import static java.util.stream.Collectors.toList;
+import static org.monarchinitiative.exomiser.core.model.pathogenicity.PathogenicitySource.*;
 
 /**
  * Default implementation of the VariantDataService.
@@ -50,6 +52,8 @@ import static java.util.stream.Collectors.toList;
 public class VariantDataServiceImpl implements VariantDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(VariantDataServiceImpl.class);
+
+    private static final Set<PathogenicitySource> TABIX_SOURCES = EnumSet.of(CADD, REMM, TEST);
 
     private final VariantWhiteList whiteList;
     // Default data sources
@@ -62,6 +66,10 @@ public class VariantDataServiceImpl implements VariantDataService {
     private final PathogenicityDao remmDao;
     private final PathogenicityDao testPathScoreDao;
 
+    // Structural variant data sources
+    private final FrequencyDao svFrequencyDao;
+    private final PathogenicityDao svPathogenicityDao;
+
     private VariantDataServiceImpl(Builder builder) {
 
         this.whiteList = builder.variantWhiteList;
@@ -73,6 +81,9 @@ public class VariantDataServiceImpl implements VariantDataService {
         this.caddDao = builder.caddDao;
         this.remmDao = builder.remmDao;
         this.testPathScoreDao = builder.testPathScoreDao;
+
+        this.svFrequencyDao = builder.svFrequencyDao;
+        this.svPathogenicityDao = builder.svPathogenicityDao;
     }
 
     @Override
@@ -83,6 +94,9 @@ public class VariantDataServiceImpl implements VariantDataService {
     @Override
     public FrequencyData getVariantFrequencyData(Variant variant, Set<FrequencySource> frequencySources) {
 
+        if (isStructural(variant)) {
+            return svFrequencyDao.getFrequencyData(variant);
+        }
         // This could be run alongside the pathogenicities as they are all stored in the same datastore
         FrequencyData defaultFrequencyData = defaultFrequencyDao.getFrequencyData(variant);
 
@@ -101,29 +115,69 @@ public class VariantDataServiceImpl implements VariantDataService {
         return FrequencyData.of(defaultFrequencyData.getRsId(), allFrequencies);
     }
 
+    // PacBio data contains lots of longer non-symbolic variants with an SVTYPE
+    // so our working definition of 'structural' is any symbolic allele or allele over 50 bp
+    private boolean isStructural(Variant variant) {
+        return variant.isSymbolic() || variant.length() >= 50;
+    }
+
     @Override
     public PathogenicityData getVariantPathogenicityData(Variant variant, Set<PathogenicitySource> pathogenicitySources) {
 
+        if (isStructural(variant)) {
+            return svPathogenicityDao.getPathogenicityData(variant);
+        }
+
         // This could be run alongside the frequencies as they are all stored in the same datastore
-        PathogenicityData defaultPathogenicityData = defaultPathogenicityDao.getPathogenicityData(variant);
         if (pathogenicitySources.isEmpty()) {
+            PathogenicityData defaultPathogenicityData = defaultPathogenicityDao.getPathogenicityData(variant);
             // Fast-path for the unlikely case when no sources are defined - we'll just return the ClinVar data
             return PathogenicityData.of(defaultPathogenicityData.getClinVarData());
         }
 
+        PathogenicityData defaultPathogenicityData;
         List<PathogenicityScore> allPathScores = new ArrayList<>();
+        if (containsTabixSource(pathogenicitySources)) {
+            CompletableFuture<PathogenicityData> futureDefaultData = CompletableFuture.supplyAsync(() -> defaultPathogenicityDao
+                    .getPathogenicityData(variant));
+            // run async - tabix sources are slow compared to MVStore
+            List<CompletableFuture<PathogenicityData>> futurePathData = new ArrayList<>();
+            // REMM is trained on non-coding regulatory bits of the genome, this outperforms CADD for non-coding variants
+            if (pathogenicitySources.contains(REMM) && variant.isNonCodingVariant()) {
+                futurePathData.add(CompletableFuture.supplyAsync(() -> remmDao.getPathogenicityData(variant)));
+            }
+            // CADD does all of it although is not as good as REMM for the non-coding regions.
+            if (pathogenicitySources.contains(CADD)) {
+                futurePathData.add(CompletableFuture.supplyAsync(() -> caddDao.getPathogenicityData(variant)));
+            }
+            if (pathogenicitySources.contains(TEST)) {
+                futurePathData.add(CompletableFuture.supplyAsync(() -> testPathScoreDao.getPathogenicityData(variant)));
+            }
+            for (CompletableFuture<PathogenicityData> pathogenicityDataCompletableFuture : futurePathData) {
+                PathogenicityData pathogenicityData = pathogenicityDataCompletableFuture.join();
+                allPathScores.addAll(pathogenicityData.getPredictedPathogenicityScores());
+            }
+            defaultPathogenicityData = futureDefaultData.join();
+        } else {
+            defaultPathogenicityData = defaultPathogenicityDao.getPathogenicityData(variant);
+        }
+
         // we're going to deliberately ignore synonymous variants from dbNSFP as these shouldn't be there
         // e.g. ?assembly=hg37&chr=1&start=158581087&ref=G&alt=A has a MutationTaster score of 1
         if (variant.getVariantEffect() != VariantEffect.SYNONYMOUS_VARIANT) {
             addAllWantedScores(pathogenicitySources, defaultPathogenicityData, allPathScores);
         }
 
-        List<PathogenicityData> optionalPathData = getOptionalPathogenicityData(variant, pathogenicitySources);
-        for (PathogenicityData pathogenicityData : optionalPathData) {
-            allPathScores.addAll(pathogenicityData.getPredictedPathogenicityScores());
-        }
-
         return PathogenicityData.of(defaultPathogenicityData.getClinVarData(), allPathScores);
+    }
+
+    private boolean containsTabixSource(Set<PathogenicitySource> pathogenicitySources) {
+        for (PathogenicitySource source : TABIX_SOURCES) {
+            if (pathogenicitySources.contains(source)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void addAllWantedScores(Set<PathogenicitySource> pathogenicitySources, PathogenicityData defaultPathogenicityData, List<PathogenicityScore> allPathScores) {
@@ -134,26 +188,26 @@ public class VariantDataServiceImpl implements VariantDataService {
         }
     }
 
-    private List<PathogenicityData> getOptionalPathogenicityData(Variant variant, Set<PathogenicitySource> pathogenicitySources) {
-        List<PathogenicityDao> daosToQuery = new ArrayList<>();
-        // REMM is trained on non-coding regulatory bits of the genome, this outperforms CADD for non-coding variants
-        if (pathogenicitySources.contains(PathogenicitySource.REMM) && variant.isNonCodingVariant()) {
-            daosToQuery.add(remmDao);
-        }
-
-        // CADD does all of it although is not as good as REMM for the non-coding regions.
-        if (pathogenicitySources.contains(PathogenicitySource.CADD)) {
-            daosToQuery.add(caddDao);
-        }
-
-        if (pathogenicitySources.contains(PathogenicitySource.TEST)) {
-            daosToQuery.add(testPathScoreDao);
-        }
-
-        return daosToQuery.parallelStream()
-                .map(pathDao -> pathDao.getPathogenicityData(variant))
-                .collect(toList());
-    }
+//    private List<PathogenicityData> getOptionalPathogenicityData(Variant variant, Set<PathogenicitySource> pathogenicitySources) {
+//        List<PathogenicityDao> daosToQuery = new ArrayList<>();
+//        // REMM is trained on non-coding regulatory bits of the genome, this outperforms CADD for non-coding variants
+//        if (pathogenicitySources.contains(PathogenicitySource.REMM) && variant.isNonCodingVariant()) {
+//            daosToQuery.add(remmDao);
+//        }
+//
+//        // CADD does all of it although is not as good as REMM for the non-coding regions.
+//        if (pathogenicitySources.contains(PathogenicitySource.CADD)) {
+//            daosToQuery.add(caddDao);
+//        }
+//
+//        if (pathogenicitySources.contains(PathogenicitySource.TEST)) {
+//            daosToQuery.add(testPathScoreDao);
+//        }
+//
+//        return daosToQuery.parallelStream()
+//                .map(pathDao -> pathDao.getPathogenicityData(variant))
+//                .collect(Collectors.toList());
+//    }
 
     public static Builder builder() {
         return new Builder();
@@ -171,6 +225,9 @@ public class VariantDataServiceImpl implements VariantDataService {
         private PathogenicityDao caddDao;
         private PathogenicityDao remmDao;
         private PathogenicityDao testPathScoreDao;
+
+        private FrequencyDao svFrequencyDao = new StubFrequencyDao();
+        private PathogenicityDao svPathogenicityDao = new StubPathogenicityDao();
 
         public Builder variantWhiteList(VariantWhiteList variantWhiteList) {
             this.variantWhiteList = variantWhiteList;
@@ -207,9 +264,32 @@ public class VariantDataServiceImpl implements VariantDataService {
             return this;
         }
 
+        public Builder svFrequencyDao(FrequencyDao svFrequencyDao) {
+            this.svFrequencyDao = svFrequencyDao;
+            return this;
+        }
+
+        public Builder svPathogenicityDao(PathogenicityDao svPathogenicityDao) {
+            this.svPathogenicityDao = svPathogenicityDao;
+            return this;
+        }
+
         public VariantDataServiceImpl build() {
             return new VariantDataServiceImpl(this);
         }
     }
 
+    private static class StubFrequencyDao implements FrequencyDao {
+        @Override
+        public FrequencyData getFrequencyData(Variant variant) {
+            return FrequencyData.empty();
+        }
+    }
+
+    private static class StubPathogenicityDao implements PathogenicityDao {
+        @Override
+        public PathogenicityData getPathogenicityData(Variant variant) {
+            return PathogenicityData.empty();
+        }
+    }
 }

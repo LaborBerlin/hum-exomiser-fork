@@ -1,7 +1,7 @@
 /*
  * The Exomiser - A tool to annotate and prioritize genomic variants
  *
- * Copyright (c) 2016-2019 Queen Mary University of London.
+ * Copyright (c) 2016-2021 Queen Mary University of London.
  * Copyright (c) 2012-2016 Charité Universitätsmedizin Berlin and Genome Research Ltd.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,10 @@
 package org.monarchinitiative.exomiser.data.genome.model.parsers;
 
 import com.google.common.collect.ImmutableSet;
-import org.monarchinitiative.exomiser.core.model.AllelePosition;
+import org.monarchinitiative.exomiser.core.genome.Contigs;
 import org.monarchinitiative.exomiser.data.genome.model.Allele;
+import org.monarchinitiative.svart.Strand;
+import org.monarchinitiative.svart.util.VariantTrimmer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +39,7 @@ import java.util.Set;
 public abstract class VcfAlleleParser implements AlleleParser {
 
     private static final Logger logger = LoggerFactory.getLogger(VcfAlleleParser.class);
+    private final VariantTrimmer variantTrimmer = VariantTrimmer.leftShiftingTrimmer(VariantTrimmer.retainingCommonBase());
 
     protected Set<String> allowedFilterValues = ImmutableSet.of(".", "PASS");
 
@@ -70,7 +73,7 @@ public abstract class VcfAlleleParser implements AlleleParser {
 
     private List<Allele> parseAlleles(String[] fields) {
 
-        byte chr = ChromosomeParser.parseChr(fields[0]);
+        int chr = Contigs.parseId(fields[0]);
         if (chr == 0 || !unfilteredOrPassed(fields[6])) {
             return Collections.emptyList();
         }
@@ -115,9 +118,9 @@ public abstract class VcfAlleleParser implements AlleleParser {
         return true;
     }
 
-    private Allele makeAllele(byte chr, int pos, String ref, String alt) {
-        AllelePosition allelePosition = AllelePosition.trim(pos, ref, alt);
-        return new Allele(chr, allelePosition.getPos(), allelePosition.getRef(), allelePosition.getAlt());
+    private Allele makeAllele(int chr, int pos, String ref, String alt) {
+        VariantTrimmer.VariantPosition variantPosition = variantTrimmer.trim(Strand.POSITIVE, pos, ref, alt);
+        return new Allele(chr, variantPosition.start(), variantPosition.ref(), variantPosition.alt());
     }
 
 }
