@@ -94,6 +94,9 @@ public enum FrequencySource {
 
     public static final Set<FrequencySource> ALL_EXTERNAL_FREQ_SOURCES = Sets.immutableEnumSet(EnumSet.range(THOUSAND_GENOMES, GNOMAD_G_SAS));
 
+    public static final Set<FrequencySource> ALL_LOCAL_AND_EXTERNAL_FREQ_SOURCES = Sets.immutableEnumSet(EnumSet.range(LOCAL, GNOMAD_G_SAS));
+
+
     private final String source;
 
     FrequencySource(String source) {

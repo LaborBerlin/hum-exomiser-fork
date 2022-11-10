@@ -50,8 +50,10 @@
                     <li><a href="index.html" th:href="@{index}">Home</a></li>
                     <li class="active"><a href="submit.html" th:href="@{submit}">Analyse</a></li>
                     <li><a href="publications.html" th:href="@{publications}">Publications</a></li>
-                    <li><a href="download.html" th:href="@{download}">Download</a></li>
-                    <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    <!-- 
+                      <li><a href="download.html" th:href="@{download}">Download</a></li>
+                      <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    -->
                     <li><a href="about.html" th:href="@{about}">About</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
@@ -69,7 +71,8 @@
                 <li><a href="#distribution" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-align-left"></span> Variant Type Distribution</b></a></li>
                 <li class="active"><a href="#prioritisation" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-sort"></span> Prioritised Genes</b></a></li>
                 <li th:unless="${#lists.isEmpty(unAnalysedVarEvals)}"><a href="#errors" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-warning-sign"></span> Unanalysed Variants</b></a></li>
-                <!--<li><a href="#about" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-question-sign"/> About</b></a></li>-->
+                <li><a href="#download" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-download-alt"/> Download Results</b></a></li>
+                <li><a href="#about" role="tab" data-toggle="tab"><b><span class="glyphicon glyphicon-question-sign"/> About</b></a></li>
             </ul>
             <div class="tab-content">
                 <div class="tab-pane fade" id="settings">
@@ -172,9 +175,7 @@
                     <div th:if="${geneResultsTruncated} == true" class="alert alert-info" role="alert">
                         For performance reasons only the top <span th:text="${@maxGenes}">300</span> out of a total of
                         <span th:text="${numCandidateGenes}">99999</span> candidate genes are shown here.
-                        If you want to explore these other genes please try the offline version which you can
-                        <a href="https://data.monarchinitiative.org/exomiser/"
-                           class="alert-link">download from the FTP site</a>.
+                        If you want to explore these other genes please contact Johannes Helmuth via <a href="mailto:johannes.helmuth@laborberlin.com" class="alert-link">E-Mail</a>.
                     </div>
 
 <!--                    <div class="panel panel-default" th:each="gene, iterStat: ${genes}">-->

@@ -52,8 +52,10 @@
                     <li><a href="index.html" th:href="@{index}">Home</a></li>
                     <li class="active"><a href="submit.html" th:href="@{submit}">Analyse</a></li>
                     <li><a href="publications.html" th:href="@{publications}">Publications</a></li>
-                    <li><a href="download.html" th:href="@{download}">Download</a></li>
-                    <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    <!-- 
+                      <li><a href="download.html" th:href="@{download}">Download</a></li>
+                      <li><a href="legal.html" th:href="@{legal}">Legal</a></li>
+                    -->
                     <li><a href="about.html" th:href="@{about}">About</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
@@ -72,13 +74,10 @@
                     <div class="panel-body">
                         <div class="col-sm-4">
                             <div class="input-group">
-                                <label for="vcf">VCF file:</label>
+                                <label for="vcf">VCF file (plain or gzipped):</label>
                                 <input type="file" draggable="true" name="vcf" id="vcf"/>
 
-                                <p class="help-block"><em>Required.</em> Upload exome sequencing results in VCF format. We can only accept files containing up to <span th:text="${@maxVariants}">100000</span> variants.
-                                    <a href="Pfeiffer.vcf">Example file</a> with causative FGFR2
-                                    variant for the autosomal dominant Pfeiffer syndrome added to exome of a
-                                    <a href="http://manuelcorpas.com/2012/02/06/my-personal-exome-analysis-part-i-first-findings">healthy individual</a>
+                                <p class="help-block"><em>Required.</em> Upload variants in plain / gzipped Variant Calling Format (VCF). We can only accept files containing up to <span th:text="${@maxVariants}">100000</span> variants. <a href="Pfeiffer.vcf">Example file</a> with causative FGFR2 variant for the autosomal dominant Pfeiffer syndrome added to exome of a <a href="http://manuelcorpas.com/2012/02/06/my-personal-exome-analysis-part-i-first-findings">healthy individual</a>
                                 </p>
                             </div>
                         </div>
@@ -86,21 +85,141 @@
                             <div class="input-group">
                                 <label for="ped">PED file:</label>
                                 <input type="file" draggable="true" name="ped" id="ped"/>
-                                <p class="help-block">Only required for multi-sample VCF files</p>
+                                <p class="help-block"><em>Only required for multi-sample VCF files</em></p>
                             </div>
                         </div>
                         <div class="col-sm-4">
                             <div class="input-group">
-                                <label for="proband">Proband:</label>
+                                <label for="proband">Proband ID:</label>
                                 <input class="form-control" type="text" name="proband" id="proband"/>
-                                <p class="help-block">Sample identifier for the proband as in the VCF and PED files. Only required for multi-sample VCF files</p>
+                                <p class="help-block"><em>Only required for multi-sample VCF files.</em>  Sample identifier for the proband as in the VCF and PED files.</p>
                             </div>
                         </div>
                     </div>
                 </div>
+                <div class="panel panel-default" id="qcfilters">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Quality Filtering Parameters</h3>
+                    </div>
+                    <div class="panel-body">
+
+                        <div class="col-sm-6">
+                          <label for="min-depth">Minimum Read Depth (Coverage):</label>
+                          <div class="form-group">
+                              <div class="input-group">
+                                  <span class="input-group-addon">Reads</span>
+                                  <input class="form-control" type="text" name="min-depth" id="min-depth" value="20.0"/>
+                              </div>
+                          </div>
+                        </div>
+
+                        <div class="col-sm-6">
+                          <label for="min-call-quality">Minimum variant call quality:</label>
+                          <div class="form-group">
+                              <div class="input-group">
+                                  <span class="input-group-addon">Phred</span>
+                                  <input class="form-control" type="text" name="min-call-quality" id="min-call-quality" value="30.0"/>
+                              </div>
+                          </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="panel panel-default" id="filters">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Data Filtering Parameters</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="col-sm-4">  
+                            <label for="keep-non-pathogenic">Keep non-pathogenic variants: </label>
+                            <div class="form-group">
+                                <select name="keep-non-pathogenic" id="keep-non-pathogenic" data-toggle="dropdown" class="chosen-select">
+                                    <option value="false">False</option>
+                                    <option selected="true" value="true">True</option>                                
+                                </select>
+                            </div>
+
+                            <label for="interval">Genetic interval:</label>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <span class="input-group-addon">Chr</span>
+                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4">  
+                            <label for="keep-off-target">Keep off-target variants: </label>
+                            <div class="form-group">
+                                <select name="keep-off-target" id="keep-off-target" data-toggle="dropdown" class="chosen-select">
+                                    <option value="false">False</option>                               
+                                    <option selected="true" value="true">True</option>
+                                </select>
+                            </div>
+
+                            <label for="gene-filter">Filter for genes:</label>
+                            <div class="form-group">
+                                <select data-placeholder=" e.g. FGFR2" class="chosen-select" multiple="true" tabindex="3" name="genes-to-keep" id="gene-filter">
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4">  
+                            <label for="remove-dbsnp">Remove all dbSNP variants: </label>
+                            <div class="form-group">
+                                <select name="remove-dbsnp" id="remove-dbsnp" data-toggle="dropdown" class="chosen-select">
+                                    <option selected="true" value="false">False</option>
+                                    <option value="true">True</option>                               
+                                </select>
+                            </div>
+                        </div> 
+                    </div>
+                </div>
+
+                <div class="panel panel-default" id="ihfilters">
+                    <div class="panel-heading">
+                       <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Variant Inheritance Filtering Parameters</h3>
+                    </div>
+                    <div class="panel-body">
+
+                        <div class="col-sm-4">
+                            <label for="inheritance">Inheritance model with defined MAF (mMAF): </label>
+                            <div class="form-group">
+                                <select name="inheritance" id="inheritance" data-toggle="dropdown" class="chosen-select">
+                                    <option selected="true" value="ANY">Automatic (All models with respective mMAF)</option>
+                                    <option value="AUTOSOMAL_DOMINANT">Autosomal dominant (mMAF = 0.02)</option>
+                                    <option value="AUTOSOMAL_RECESSIVE">Autosomal recessive (mMAF = 1.0))</option>
+                                    <option value="X_DOMINANT">X-Dominant (mMAF = 0.02)</option>
+                                    <option value="X_RECESSIVE">X-Recessive (mMAF = 0.1)</option>
+                                    <option value="MITOCHONDRIAL">Mitochondrial (mMAF = 1.0)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4">  
+                            <label for="frequency">User-specified restrictive maximum MAF:</label>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <span class="input-group-addon">MAF</span>
+                                    <input class="form-control" type="text" name="frequency" id="frequency" value="1.0"/>
+                                    <span class="input-group-addon">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-sm-4">  
+                            <div class="form-group">
+                                <p class="help-block">
+                                <em>NOTE:</em>
+                                The user-specified maximum MAF does <u>not</u> override mMAF but can facilitate a more restrictive filtering of results.
+                                </p>
+                            </div>
+                        </div> 
+                    </div>
+                </div>
                 <div class="panel panel-default">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-tasks"></span> Enter Sample Phenotypes</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-tasks"></span> Set Variant Prioritisation Parameters </h3>
                     </div>
                     <div class="panel-body">
 
@@ -126,93 +245,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="panel panel-default" id="filters">
-                    <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-filter"></span> Set Filtering Parameters</h3>
-                    </div>
-                    <div class="panel-body">
-                        <div class="col-sm-4">
-                            <label for="quality">Minimum variant call quality:</label>
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">Phred</span>
-                                    <input class="form-control" type="text" name="quality" id="quality" placeholder="e.g. 30.0"/>
-                                </div>
-                            </div>
 
-                            <label for="remove-dbsnp">Remove all dbSNP variants: </label>
-                            <div class="form-group">
-                                <select name="remove-dbsnp" id="remove-dbsnp" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                               
-                                </select>
-                            </div>
-
-                            <label for="keep-off-target">Keep off-target variants: </label>
-                            <div class="form-group">
-                                <select name="keep-off-target" id="keep-off-target" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                               
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">  
-                            <label for="interval">Genetic interval:</label>
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">Chr</span>
-                                    <input class="form-control" type="text" name="interval" id="interval" placeholder="e.g. 1:12339-3242525"/>
-                                </div>
-                            </div>
-
-                            <label for="keep-non-pathogenic">Keep non-pathogenic variants: </label>
-                            <div class="form-group">
-                                <select name="keep-non-pathogenic" id="keep-non-pathogenic" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="false">False</option>
-                                    <option value="true">True</option>                                
-                                </select>
-                            </div>
-
-                            <label for="inheritance">Inheritance model: </label>
-                            <div class="form-group">
-                                <select name="inheritance" id="inheritance" data-toggle="dropdown" class="chosen-select">
-                                    <option selected="true" value="AUTOSOMAL_DOMINANT">Autosomal dominant</option>
-                                    <option value="AUTOSOMAL_RECESSIVE">Autosomal recessive</option>
-                                    <option value="X_DOMINANT">X-Dominant</option>
-                                    <option value="X_RECESSIVE">X-Recessive</option>
-                                    <option value="MITOCHONDRIAL">Mitochondrial</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">  
-                            <label for="frequency">Maximum minor allele frequency:</label>
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <span class="input-group-addon">MAF</span>
-                                    <input class="form-control" type="text" name="frequency" id="frequency" value="1.0"/>
-                                    <span class="input-group-addon">%</span>
-                                </div>
-                            </div>
-
-                            <label for="gene-filter">Filter for genes:</label>
-                            <div class="form-group">
-                                <select data-placeholder=" e.g. FGFR2" class="chosen-select" multiple="true" tabindex="3" name="genes-to-keep" id="gene-filter">
-                                </select>
-                            </div>
-                        </div> 
-                    </div>
-                </div>
                 <div class="panel panel-default">
                     <div class="panel-heading">
-                        <h3 class="panel-title"><span class="glyphicon glyphicon-sort"></span> Choose Prioritiser</h3>
+                        <h3 class="panel-title"><span class="glyphicon glyphicon-sort"></span> Choose Variant Prioritiser</h3>
                     </div>
                     <div class="panel-body">
                         <div class="col-sm-4">
                             <label for="prioritiser">Prioritise genes using:</label>
                             <select name="prioritiser" id="prioritiser_dropdown" class="chosen-select">
-                                <option selected="true" value="HIPHIVE_PRIORITY">hiPHIVE (compare phenotypes against all species)</option>
+                                <option value="HIPHIVE_PRIORITY">hiPHIVE (compare phenotypes against all species)</option>
                                 <option value="PHIVE_PRIORITY">PHIVE (compare phenotypes against mouse only)</option>
-                                <option value="PHENIX_PRIORITY">PhenIX (compare phenotypes against human only)</option>
+                                <option selected="true" value="PHENIX_PRIORITY">PhenIX (compare phenotypes against human only)</option>
                                 <option value="NONE">None - filter only</option>
                                 <!--<option value="EXOMEWALKER_PRIORITY">ExomeWalker (protein interaction)</option>-->
                             </select>
@@ -228,11 +272,9 @@
                         <span class="glyphicon glyphicon-play"></span> Submit
                     </button> 
                     <p class="help-block">
+<!-- helmuth 2018-01-30 Adjusted footer -->
                         Please be patient and do not mash the submit button - the analysis could take a minute or two depending on the size of the sample and load on the server. 
-                        VCF files are stored as temporary files on our server and deleted following analysis. For performance reasons only the top <span th:text="${@maxGenes}">100</span> genes are returned. 
-                        If you require the Exomiser for analysing large samples or batches of multiple samples we <em>strongly</em> suggest you download and run the 
-                        offline version available from the <a href="https://data.monarchinitiative.org/exomiser/">FTP site</a>.
-                        The Exomiser is freely available for academic users or for private use. Other users are requested to contact us to obtain a license.
+                        VCF files are stored as temporary files on our server and deleted following analysis. 
                     </p>
 
                     <!--<p class="help-block">Need more info? Try the <a href="/resources/databases/exomiser/query/public/Tutorial.pdf">Tutorial</a></p>-->

@@ -106,22 +106,29 @@ public class SubmitJobController {
 
     @PostMapping(value = SUBMIT_PAGE)
     public String submit(
-            @RequestParam(value = "vcf") MultipartFile vcfFile,
-            @RequestParam(value = "ped", required = false) MultipartFile pedFile,
-            @RequestParam(value = "proband", required = false) String proband,
-            @RequestParam(value = "disease", required = false) String diseaseId,
-            @RequestParam(value = "phenotypes", required = false) List<String> phenotypes,
-            @RequestParam(value = "min-call-quality", required = false, defaultValue = "0") Float minimumQuality,
-            @RequestParam(value = "genetic-interval", required = false, defaultValue = "") String geneticInterval,
-            @RequestParam("frequency") String frequency,
-            @RequestParam("remove-dbsnp") Boolean removeDbSnp,
-            @RequestParam("keep-non-pathogenic") Boolean keepNonPathogenic,
-            @RequestParam("keep-off-target") Boolean keepOffTarget,
-            @RequestParam("inheritance") String modeOfInheritance,
-            @RequestParam(value = "genes-to-keep", required = false) List<String> genesToFilter,
-            @RequestParam("prioritiser") String prioritiser,
-            HttpSession session,
-            Model model) {
+        //input-data
+        @RequestParam(value = "vcf") MultipartFile vcfFile,
+        @RequestParam(value = "ped", required = false) MultipartFile pedFile,
+        @RequestParam(value = "proband", required = false) String proband,
+        //Sample Phenotypes
+        @RequestParam(value = "disease", required = false) String diseaseId,
+        @RequestParam(value = "phenotypes", required = false) List<String> phenotypes,
+        //Quality Filtering Parameters
+        @RequestParam(value = "min-depth", required = false, defaultValue = "0") Float minimumDepth,
+        @RequestParam(value = "min-call-quality", required = false, defaultValue = "0") Float minimumQuality,
+        //Data Filtering Parameters
+        @RequestParam("keep-non-pathogenic") Boolean keepNonPathogenic,
+        @RequestParam("keep-off-target") Boolean keepOffTarget,
+        @RequestParam("remove-dbsnp") Boolean removeDbSnp,
+        @RequestParam(value = "genetic-interval", required = false, defaultValue = "") String geneticInterval,
+        @RequestParam(value = "genes-to-keep", required = false) List<String> genesToFilter,
+        //Inheritance Filtering Parameters
+        @RequestParam("inheritance") String modeOfInheritance,
+        @RequestParam("frequency") String frequency,
+        //prioritiser
+        @RequestParam("prioritiser") String prioritiser,
+        HttpSession session,
+        Model model) {
 
         UUID analysisId = UUID.randomUUID();
         logger.info("Analysis id: {}", analysisId);
@@ -157,9 +164,13 @@ public class SubmitJobController {
             logger.info("{} contains {} variants - within set limit of {}", vcfPath, numVariantsInSample, maxVariants);
         }
 
+
         Sample sample = buildSample(vcfPath, pedPath, proband, phenotypes);
-        Analysis analysis = buildAnalysis(geneticInterval, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
+        Analysis analysis = buildAnalysis(geneticInterval, minimumQuality, minimumDepth, removeDbSnp, keepOffTarget, keepNonPathogenic, modeOfInheritance, frequency, makeGenesToKeep(genesToFilter), prioritiser);
         AnalysisResults analysisResults = exomiser.run(sample, analysis);
+        //2018-06-19: Write results to temporary directory for subsequent download
+        writeResultsToFile(analysisId, analysis, analysisResults);
+
 
         buildResultsModel(model, analysis, analysisResults);
         logger.info("Returning {} results to user", vcfPath.getFileName());
@@ -184,14 +195,23 @@ public class SubmitJobController {
         return priorityService.getHpoIdsForDiseaseId(diseaseId);
     }
 
-    private Analysis buildAnalysis(String geneticInterval, Float minimumQuality, boolean removeDbSnp, boolean keepOffTarget, boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
+    private Analysis buildAnalysis(Path vcfPath, Path pedPath, String proband, List<String> phenotypes, String geneticInterval, Float minimumQuality, Float minimumDepth, Boolean removeDbSnp, Boolean keepOffTarget, Boolean keepNonPathogenic, String modeOfInheritance, String frequency, Set<String> genesToKeep, String prioritiser) {
 
+        //helmuth 2022-11-10: Use local frequency db and external sources
+        //AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
+        //        .analysisMode(AnalysisMode.PASS_ONLY)
+        //        .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY")) ? InheritanceModeOptions.defaults() : InheritanceModeOptions
+        //                .defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
+        //        .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
+        //        .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
         AnalysisBuilder analysisBuilder = exomiser.getAnalysisBuilder()
-                .analysisMode(AnalysisMode.PASS_ONLY)
-                .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY")) ? InheritanceModeOptions.defaults() : InheritanceModeOptions
-                        .defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
-                .frequencySources(FrequencySource.ALL_EXTERNAL_FREQ_SOURCES)
-                .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
+                .analysisMode(AnalysisMode.FULL)
+                .inheritanceModes((modeOfInheritance.equalsIgnoreCase("ANY"))? InheritanceModeOptions.defaults() : InheritanceModeOptions.defaultForModes(ModeOfInheritance.valueOf(modeOfInheritance)))
+                .frequencySources(FrequencySource.ALL_LOCAL_AND_EXTERNAL_FREQ_SOURCES)
+                .pathogenicitySources(EnumSet.of(PathogenicitySource.MUTATION_TASTER, PathogenicitySource.CADD, PathogenicitySource.SIFT, PathogenicitySource.POLYPHEN));
+
+        //helmuth 2022-11-10: Also capture splicing variants
+        analysisBuilder.addVariantEffectFilter(Sets.immutableEnumSet(VariantEffect.SPLICE_REGION_VARIANT));
 
         addFilters(analysisBuilder, minimumQuality, removeDbSnp, keepOffTarget, keepNonPathogenic, frequency, genesToKeep, geneticInterval);
         //soon these will run by default
@@ -199,6 +219,21 @@ public class SubmitJobController {
         analysisBuilder.addOmimPrioritiser();
         //add the users choice of prioritiser
         addPrioritiser(analysisBuilder, prioritiser);
+
+        //log of webform setting
+        logger.info("User-specified Quality Filtering Parameters:");
+        logger.info("  minimumDepth: {}", minimumDepth);
+        logger.info("  minimumQuality: {}", minimumQuality);
+        logger.info("User-specified Data Filtering Parameters:");
+        logger.info("  modeOfInheritance: {}", modeOfInheritance);
+        logger.info("  frequency: {}", frequency);
+        logger.info("  keepNonPathogenic: {}", keepNonPathogenic);
+        logger.info("  keepOffTarget: {}", keepOffTarget);
+        logger.info("  removeDbSnp: {}", removeDbSnp);
+        logger.info("  geneticInterval: {}", geneticInterval);
+        logger.info("  genesToKeep: {}", genesToKeep);
+        logger.info("User-specified Prioritiser:");
+        logger.info("  prioritiser: {}", prioritiser);
 
         return analysisBuilder.build();
     }
@@ -255,7 +290,8 @@ public class SubmitJobController {
         logger.info("Output dir: {}", outputDir);
         String outFileName = outputDir.toString() + "/results";
         OutputSettings outputSettings = OutputSettings.builder()
-                .numberOfGenesToShow(20)
+                .outputContributingVariantsOnly(false)
+                .numberOfGenesToShow(50)
                 .outputPrefix(outFileName)
                 //OutputFormat.HTML causes issues due to thymeleaf templating - don't use!
                 .outputFormats(EnumSet.of(OutputFormat.TSV_GENE, OutputFormat.TSV_VARIANT, OutputFormat.VCF, OutputFormat.JSON))
