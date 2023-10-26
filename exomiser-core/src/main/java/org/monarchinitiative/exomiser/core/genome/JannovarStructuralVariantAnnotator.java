@@ -36,10 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static de.charite.compbio.jannovar.annotation.VariantEffect.*;
 import static java.util.stream.Collectors.groupingBy;
@@ -53,6 +50,8 @@ class JannovarStructuralVariantAnnotator implements VariantAnnotator {
 
     private static final Logger logger = LoggerFactory.getLogger(JannovarStructuralVariantAnnotator.class);
     private static final VariantAnnotation EMPTY_STRUCTURAL_ANNOTATION = VariantAnnotation.of("", "", STRUCTURAL_VARIANT, List.of());
+
+    private static final VariantEffect DEFAULT_EFFECT = SEQUENCE_VARIANT;
 
     private final GenomeAssembly genomeAssembly;
     private final JannovarVariantConverter jannovarVariantConverter;
@@ -101,8 +100,19 @@ class JannovarStructuralVariantAnnotator implements VariantAnnotator {
 
     private VariantAnnotation toStructuralVariantAnnotation(Variant variant, List<SVAnnotation> svAnnotations) {
         svAnnotations.sort(SVAnnotation::compareTo);
-        SVAnnotation highestImpactAnnotation = svAnnotations.isEmpty() ? null : svAnnotations.get(0);
-        //Attention! highestImpactAnnotation can be null
+        @Nullable SVAnnotation highestImpactAnnotation = svAnnotations.isEmpty() ? null : svAnnotations.get(0);
+        // CAUTION! highestImpactAnnotation can be null
+
+        // Jannovar reports INSERTION & INVERSION as a HIGH impact, as the SO does not have terms to describe structural
+        // variants within a coding sequence, so this loses the context of where the insertion was seen.
+        // This is a potentially deleterious insertion:
+        // [INSERTION, STRUCTURAL_VARIANT, CODING_SEQUENCE_VARIANT, CODING_TRANSCRIPT_VARIANT] -> CODING_SEQUENCE_VARIANT
+        // This is a downstream, non-coding insertion so is probably uninteresting
+        // [INSERTION, DOWNSTREAM_GENE_VARIANT, STRUCTURAL_VARIANT, CODING_TRANSCRIPT_VARIANT] -> DOWNSTREAM_GENE_VARIANT
+        // This is an inversion overlapping a coding transcript. Note that CODING_TRANSCRIPT_VARIANT is a MODIFIER impact
+        // [INVERSION, STRUCTURAL_VARIANT, CODING_TRANSCRIPT_VARIANT] -> CODING_TRANSCRIPT_VARIANT
+        // TODO: This would be an ideal place to calculate a variantEffectScore (instead of in the VariantEffectPathogenicityScore)
+        //  based on the SvAnna scoring system https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-022-01046-6/tables/1
         VariantEffect highestImpactEffect = getHighestImpactEffect(highestImpactAnnotation);
         String geneSymbol = buildGeneSymbol(highestImpactAnnotation);
         String geneId = buildGeneId(highestImpactAnnotation);
@@ -114,8 +124,17 @@ class JannovarStructuralVariantAnnotator implements VariantAnnotator {
     }
 
     private VariantEffect getHighestImpactEffect(@Nullable SVAnnotation highestImpactAnnotation) {
-        return (highestImpactAnnotation == null || highestImpactAnnotation.getMostPathogenicVariantEffect() == null) ? VariantEffect.STRUCTURAL_VARIANT : highestImpactAnnotation
-                .getMostPathogenicVariantEffect();
+        return (highestImpactAnnotation == null || highestImpactAnnotation.getMostPathogenicVariantEffect() == null) ? DEFAULT_EFFECT :
+                filterEffects(highestImpactAnnotation.getEffects());
+    }
+
+    private static VariantEffect filterEffects(Set<VariantEffect> variantEffects) {
+        for (VariantEffect varEff : variantEffects) {
+            if (!(varEff == INSERTION || varEff == INVERSION || varEff == STRUCTURAL_VARIANT)) {
+                return varEff;
+            }
+        }
+        return DEFAULT_EFFECT;
     }
 
     private List<TranscriptAnnotation> buildSvTranscriptAnnotations(List<SVAnnotation> svAnnotations) {
@@ -128,7 +147,7 @@ class JannovarStructuralVariantAnnotator implements VariantAnnotator {
 
     private TranscriptAnnotation toTranscriptAnnotation(SVAnnotation svAnnotation) {
         return TranscriptAnnotation.builder()
-                .variantEffect(getVariantEffectOrDefault(svAnnotation.getMostPathogenicVariantEffect(), VariantEffect.STRUCTURAL_VARIANT))
+                .variantEffect(getVariantEffectOrDefault(svAnnotation.getMostPathogenicVariantEffect(), DEFAULT_EFFECT))
                 .accession(TranscriptModelUtil.getTranscriptAccession(svAnnotation.getTranscript()))
                 .geneSymbol(buildGeneSymbol(svAnnotation))
                 .distanceFromNearestGene(getDistFromNearestGene(svAnnotation))

@@ -91,6 +91,7 @@ class Acgs2020ClassifierTest {
     @CsvSource({
 //      (c)  >=2 Strong
             "PS1 PS2",
+            "PVS1 PP1", // updated rule https://clinicalgenome.org/site/assets/files/5182/pm2_-_svi_recommendation_-_approved_sept2020.pdf
 //      (b)  1 Strong (PS1–PS4) AND
 //             1–2 moderate (PM1–PM6) OR
             "PS1 PM1 PM2",
@@ -143,7 +144,7 @@ class Acgs2020ClassifierTest {
     @ParameterizedTest
     @CsvSource({
 //            (i)  Other criteria shown above are not met
-            "PVS1 PP1",
+//            "PVS1 PP1", //
             "PS1 PP1", // VUS_Hot
             "PM1 PM2 PP1", // VUS_Hot
 //            "PM1 PP1 PP2 PP3", // VUS_Hot - classified as LP

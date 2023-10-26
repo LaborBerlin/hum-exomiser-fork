@@ -1,8 +1,70 @@
 # The Exomiser - Core Library Changelog
 
+## 13.3.0 2023-10-17
+
+- Updated Jannovar version to 0.41 to fix incorrect MT codon table usage [#521](https://github.com/exomiser/Exomiser/issues/521)
+- Downgraded PM2 - PM2_Supporting for variants lacking frequency information [#502](https://github.com/exomiser/Exomiser/issues/502).
+- Updated Acgs2020Classifier and Acmg2015Classifier to allow for PVS1 and PM2_Supporting to be sufficient to trigger LIKELY_PATHOGENIC
+- Updated AcmgEvidence to fit a Bayesian points-based system [#514](https://github.com/exomiser/Exomiser/issues/514)
+- Removed ASJ, FIN, OTH ExAC and gnomAD populations from presets and examples [#513](https://github.com/exomiser/Exomiser/issues/513).
+- Fix for regression causing `<INV>` variants to be incorrectly down-ranked 
+- Fix for issue [#486](https://github.com/exomiser/Exomiser/issues/486) where VCF output includes whitespace in INFO field.
+- Logs will now display elapsed time correctly if an analysis runs over an hour (!).
+- Updated exomiser-phenotype-data to take annotations from phenotype.hpoa [#351](https://github.com/exomiser/Exomiser/issues/351), [#373](https://github.com/exomiser/Exomiser/issues/373), [#379](https://github.com/exomiser/Exomiser/issues/379)
+- Updated application.properties and ResourceConfigurationProperties to remove unused fields.
+- Updated DiseaseInheritanceCacheReader and DiseasePhenotypeReader to parse phenotype.hpoa file
+- Updated DiseaseResourceConfig to use hpoa resource
+
+New APIs:
+
+- New `Acmg2020PointsBasedClassifier` class
+- New `FrequencyData.size()` method
+- New `FrequencyData.isEmpty()` method
+- New `FrequencyData.containsFrequencySource()` method
+- New `FrequencyData.getMaxFreqForPopulation()` method
+- New `FrequencySource.NON_FOUNDER_POPS` method
+
+## 13.2.1 2023-06-30
+
+- Fix for bug where all `<INS>` structural variants were given a maximal variant score of 1.0 regardless of their position on a transcript.
+- Added partial implementation of [SVanna scoring](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-022-01046-6/tables/1) for coding and splice site symbolic variants. 
+- Fix for issue #481 where TSV and VCF results files would contain no data when the analysis `inheritanceModes` was empty. 
+
+**IMPORTANT!** *This will be the last major release to run on Java 11. Subsequent major releases (i.e. 14+) will require Java 17.*
+
+## 13.2.0 2023-02-28
+
+- Fixed excessive CPU usage and application hang after variant prioritisation with large number of results
+- Fixed issue [#478](https://github.com/exomiser/Exomiser/issues/478) where gene.tsv output files are empty when running a phenotype only prioritisation.
+- Fixed broken links to OMIM in the phenotypic similarity section of the HTML output [#465](https://github.com/exomiser/Exomiser/issues/465)
+- Added gene symbol as HTML id tag in gene panel HTML results [#422](https://github.com/exomiser/Exomiser/pull/422)
+- Fixed broken build due to missing sonumina repository and related artefacts [#460](https://github.com/exomiser/Exomiser/issues/460)
+
+
+API breaking changes:
+
+- None
+
+
+New APIs:
+
+- New `OutputSettings.getOutputDirectory()`
+- New `OutputSettings.getOutputFileName()`
+
+
+Deprecated methods:
+
+- `OutputSettings.getOutputPrefix()` deprecated in favour of new `OutputSettings.getOutputDirectory()` and `OutputSettings.getOutputFileName()` methods
+
+
+Other changes:
+
+- Update Spring boot 2.6.9 -> 2.7.7
+
+
 ## 13.1.0 2022-07-29
 
-The three new features for this release is the autoated ACMG classification of small sequence variants, calculating
+The three new features for this release is the automated ACMG classification of small sequence variants, calculating
 p-values for the combined scores and providing new and more interpretable TSV and VCF output files.
 
 - Added new automated ACMG annotations for top-scoring variants in known disease-causing genes.
